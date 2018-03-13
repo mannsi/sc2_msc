@@ -3,6 +3,7 @@ from pysc2.lib import actions
 from pysc2.lib import features
 
 import time
+import helper
 
 # define the features the AI can see
 _PLAYER_RELATIVE = features.SCREEN_FEATURES.player_relative.index
@@ -18,7 +19,7 @@ _UNITS_MINE = 1
 _UNITS_ENEMY = 4
 
 # constants for actions
-_SELECT_ALL = [0]
+_SELECT_ADD = [1]
 _NOT_QUEUED = [0]
 
 
@@ -45,6 +46,9 @@ class MarineUpAgent(base_agent.BaseAgent):
 
         time.sleep(1)
 
+        available_action_names = helper.action_ids_to_action_names(obs.observation['available_actions'])
+        print(available_action_names)
+
         # if we can move our army (we have something selected)
         if _MOVE_SCREEN in obs.observation['available_actions']:
             # it our marine is not on the screen do nothing.
@@ -59,6 +63,5 @@ class MarineUpAgent(base_agent.BaseAgent):
 
             return actions.FunctionCall(_MOVE_SCREEN, [_NOT_QUEUED, target])
         else:
-            # return actions.FunctionCall(_SELECT_ARMY, [_SELECT_ALL])
-            # print(marine_x[0], marine_y[0])
-            return actions.FunctionCall(_SELECT_POINT, [[1], [marine_x.mean(), marine_y.mean()]])
+            return actions.FunctionCall(_SELECT_ARMY, [_SELECT_ADD])
+            # return actions.FunctionCall(_SELECT_POINT, [[1], [marine_x.mean(), marine_y.mean()]])
