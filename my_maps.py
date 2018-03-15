@@ -8,7 +8,7 @@ class MyMap(lib.Map):
   players = 1
   score_index = 0
   game_steps_per_episode = 0
-  step_mul = 8
+  step_mul = 100
 
 
 def load_my_maps():

@@ -10,6 +10,8 @@ _PLAYER_RELATIVE = features.SCREEN_FEATURES.player_relative.index
 # define contstants for actions
 _NO_OP = actions.FUNCTIONS.no_op.id
 _MOVE_SCREEN = actions.FUNCTIONS.Move_screen.id
+_ATTACK_SCREEN = actions.FUNCTIONS.Attack_screen.id
+
 
 _SELECT_ARMY = actions.FUNCTIONS.select_army.id
 _SELECT_POINT = actions.FUNCTIONS.select_point.id
@@ -28,6 +30,11 @@ def get_marine_location(ai_relative_view):
     return (ai_relative_view == _UNITS_MINE).nonzero()
 
 
+def get_oponent_unit_location(ai_relative_view):
+    '''get the indices where the world is equal to 1'''
+    return (ai_relative_view == _UNITS_ENEMY).nonzero()
+
+
 class MarineUpAgent(base_agent.BaseAgent):
     """An agent for doing a simple movement form one point to another."""
 
@@ -39,15 +46,20 @@ class MarineUpAgent(base_agent.BaseAgent):
         # call the parent class to have pysc2 setup rewards/etc
         super(MarineUpAgent, self).step(obs)
 
+        # if self.steps < 100:
+        #     return actions.FunctionCall(_NO_OP, [])
+
         # get what the ai can see about the world
         player_relative_screen = obs.observation['screen'][_PLAYER_RELATIVE]
         # get the location of our marine in this world
         marine_y, marine_x = get_marine_location(player_relative_screen)
+        scv_y, scv_x = get_oponent_unit_location(player_relative_screen)
 
-        time.sleep(1)
+
+        time.sleep(1/5)
 
         available_action_names = helper.action_ids_to_action_names(obs.observation['available_actions'])
-        print(available_action_names)
+        # print(available_action_names)
 
         # if we can move our army (we have something selected)
         if _MOVE_SCREEN in obs.observation['available_actions']:
@@ -56,12 +68,13 @@ class MarineUpAgent(base_agent.BaseAgent):
             # part of the world
             if not marine_x.any():
                 return actions.FunctionCall(_NO_OP, [])
-            # target = get_rand_location([marine_x, marine_y])
-            target = [marine_x.mean(), marine_y.mean() - 1]
-            # target = [marine_x[0], marine_y[0]]
-            # print(target)
+            # target = [marine_x.mean() + 1, marine_y.mean()]
+            if scv_x.any():
+                target = [scv_x.mean(), scv_y.mean()]
+            else:
+                target = [marine_x.mean() + 1, marine_y.mean()]
 
-            return actions.FunctionCall(_MOVE_SCREEN, [_NOT_QUEUED, target])
+            return actions.FunctionCall(_ATTACK_SCREEN, [_NOT_QUEUED, target])
         else:
             return actions.FunctionCall(_SELECT_ARMY, [_SELECT_ADD])
             # return actions.FunctionCall(_SELECT_POINT, [[1], [marine_x.mean(), marine_y.mean()]])
