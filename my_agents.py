@@ -61,6 +61,8 @@ class MarineUpAgent(base_agent.BaseAgent):
         available_action_names = helper.action_ids_to_action_names(obs.observation['available_actions'])
         # print(available_action_names)
 
+        print(f'Step {self.steps}, reward {obs.reward}, scv_alive {scv_x.any()}')
+
         # if we can move our army (we have something selected)
         if _MOVE_SCREEN in obs.observation['available_actions']:
             # it our marine is not on the screen do nothing.
