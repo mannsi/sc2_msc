@@ -25,58 +25,59 @@ _SELECT_ADD = [1]
 _NOT_QUEUED = [0]
 
 
-def get_marine_location(ai_relative_view):
-    '''get the indices where the world is equal to 1'''
-    return (ai_relative_view == _UNITS_MINE).nonzero()
-
-
-def get_oponent_unit_location(ai_relative_view):
-    '''get the indices where the world is equal to 1'''
-    return (ai_relative_view == _UNITS_ENEMY).nonzero()
-
-
-class MarineUpAgent(base_agent.BaseAgent):
-    """An agent for doing a simple movement form one point to another."""
+class MyBaseAgent(base_agent.BaseAgent):
+    """My base agent"""
 
     def __init__(self):
         super().__init__()
+        self.obs = None
 
     def step(self, obs):
         '''step function gets called automatically by pysc2 environment'''
         # call the parent class to have pysc2 setup rewards/etc
-        super(MarineUpAgent, self).step(obs)
+        super(MyBaseAgent, self).step(obs)
+        self.obs = obs
+
+    def _get_player_relative_view(self):
+        """ View from player camera perspective. Returns an NxN np array """
+        return self.obs.observation['screen'][_PLAYER_RELATIVE]
+
+    def _get_own_unit_locations(self):
+        """ My own unit locations as a tuple of (np_array_of_Y_locations, np_array_of_X_locations)"""
+        return (self._get_player_relative_view() == _UNITS_MINE).nonzero()
+
+    def _get_oponent_unit_locations(self):
+        """ Enemy unit locations as a tuple of (np_array_of_Y_locations, np_array_of_X_locations)"""
+        return (self._get_player_relative_view() == _UNITS_ENEMY).nonzero()
+
+    def print_step_debug_data(self):
+        enemy_unit_x, enemy_unit_y = self._get_oponent_unit_locations()
+        print(f'Step {self.steps}, reward {self.obs.reward}, scv_alive {enemy_unit_x.any()}')
+
+    def print_available_actions(self):
+        print(helper.action_ids_to_action_names(self.obs.observation['available_actions']))
+
+
+class AttackAlwaysAgent(MyBaseAgent):
+    """Agent that attacks the enemy on every action"""
+
+    def step(self, obs):
+        '''step function gets called automatically by pysc2 environment'''
+        # call the parent class to have pysc2 setup rewards/etc
+        super(AttackAlwaysAgent, self).step(obs)
 
         # if self.steps < 100:
         #     return actions.FunctionCall(_NO_OP, [])
 
-        # get what the ai can see about the world
-        player_relative_screen = obs.observation['screen'][_PLAYER_RELATIVE]
-        # get the location of our marine in this world
-        marine_y, marine_x = get_marine_location(player_relative_screen)
-        scv_y, scv_x = get_oponent_unit_location(player_relative_screen)
+        # time.sleep(1/5)
+        self.print_step_debug_data()
 
-
-        time.sleep(1/5)
-
-        available_action_names = helper.action_ids_to_action_names(obs.observation['available_actions'])
-        # print(available_action_names)
-
-        print(f'Step {self.steps}, reward {obs.reward}, scv_alive {scv_x.any()}')
-
-        # if we can move our army (we have something selected)
-        if _MOVE_SCREEN in obs.observation['available_actions']:
-            # it our marine is not on the screen do nothing.
-            # this happens if we scroll away and look at a different
-            # part of the world
-            if not marine_x.any():
-                return actions.FunctionCall(_NO_OP, [])
-            # target = [marine_x.mean() + 1, marine_y.mean()]
-            if scv_x.any():
-                target = [scv_x.mean(), scv_y.mean()]
-            else:
-                target = [marine_x.mean() + 1, marine_y.mean()]
-
-            return actions.FunctionCall(_ATTACK_SCREEN, [_NOT_QUEUED, target])
+        scv_y, scv_x = self._get_oponent_unit_locations()
+        scv_found = scv_x.any()
+        if scv_found:
+            target = [scv_x.mean(), scv_y.mean()]
         else:
-            return actions.FunctionCall(_SELECT_ARMY, [_SELECT_ADD])
-            # return actions.FunctionCall(_SELECT_POINT, [[1], [marine_x.mean(), marine_y.mean()]])
+            marine_y, marine_x = self._get_own_unit_locations()
+            target = [marine_x.mean() + 1, marine_y.mean()]
+        return actions.FunctionCall(_ATTACK_SCREEN, [_NOT_QUEUED, target])
+
