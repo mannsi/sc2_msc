@@ -33,7 +33,6 @@ class MyBaseAgent(base_agent.BaseAgent):
         self.obs = None
 
     def step(self, obs):
-        '''step function gets called automatically by pysc2 environment'''
         # call the parent class to have pysc2 setup rewards/etc
         super(MyBaseAgent, self).step(obs)
         self.obs = obs
@@ -46,12 +45,12 @@ class MyBaseAgent(base_agent.BaseAgent):
         """ My own unit locations as a tuple of (np_array_of_Y_locations, np_array_of_X_locations)"""
         return (self._get_player_relative_view() == _UNITS_MINE).nonzero()
 
-    def _get_oponent_unit_locations(self):
+    def _get_enemy_unit_locations(self):
         """ Enemy unit locations as a tuple of (np_array_of_Y_locations, np_array_of_X_locations)"""
         return (self._get_player_relative_view() == _UNITS_ENEMY).nonzero()
 
     def print_step_debug_data(self):
-        enemy_unit_x, enemy_unit_y = self._get_oponent_unit_locations()
+        enemy_unit_x, enemy_unit_y = self._get_enemy_unit_locations()
         print(f'Step {self.steps}, reward {self.obs.reward}, scv_alive {enemy_unit_x.any()}')
 
     def print_available_actions(self):
@@ -62,8 +61,6 @@ class AttackAlwaysAgent(MyBaseAgent):
     """Agent that attacks the enemy on every action"""
 
     def step(self, obs):
-        '''step function gets called automatically by pysc2 environment'''
-        # call the parent class to have pysc2 setup rewards/etc
         super(AttackAlwaysAgent, self).step(obs)
 
         # if self.steps < 100:
@@ -72,12 +69,38 @@ class AttackAlwaysAgent(MyBaseAgent):
         # time.sleep(1/5)
         self.print_step_debug_data()
 
-        scv_y, scv_x = self._get_oponent_unit_locations()
-        scv_found = scv_x.any()
-        if scv_found:
-            target = [scv_x.mean(), scv_y.mean()]
+        enemy_y, enemy_x = self._get_enemy_unit_locations()
+        enemy_found = enemy_x.any()
+        if enemy_found:
+            target = [enemy_x.mean(), enemy_y.mean()]
         else:
+            # Hacky code since enemy sometimes moves out of screen range
             marine_y, marine_x = self._get_own_unit_locations()
             target = [marine_x.mean() + 1, marine_y.mean()]
         return actions.FunctionCall(_ATTACK_SCREEN, [_NOT_QUEUED, target])
 
+
+class AttackMoveAgent(MyBaseAgent):
+    """Agent that alternates between attacking and moving towards enemy"""
+
+    def step(self, obs):
+        super(AttackMoveAgent, self).step(obs)
+
+        # time.sleep(1/5)
+        # self.print_step_debug_data()
+
+        enemy_y, enemy_x = self._get_enemy_unit_locations()
+        enemy_found = enemy_x.any()
+        if enemy_found:
+            target = [enemy_x.mean(), enemy_y.mean()]
+        else:
+            # Hacky code since enemy sometimes moves out of screen range
+            marine_y, marine_x = self._get_own_unit_locations()
+            target = [marine_x.mean() + 1, marine_y.mean()]
+
+        action = _ATTACK_SCREEN if self.steps % 2 == 1 else _MOVE_SCREEN
+        if action == _ATTACK_SCREEN:
+            print("Attack screen")
+        elif action == _MOVE_SCREEN:
+            print("Move screen")
+        return actions.FunctionCall(action, [_NOT_QUEUED, target])
