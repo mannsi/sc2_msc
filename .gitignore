@@ -101,6 +101,10 @@ ENV/
 .mypy_cache/
 
 # PYCHARM STUFF
+# Interpreter specific stuff:
+.idea/misc.xml
+.idea/sc2_msc.iml
+
 # User-specific stuff:
 .idea/**/workspace.xml
 .idea/**/tasks.xml
