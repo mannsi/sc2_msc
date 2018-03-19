@@ -16,3 +16,4 @@ def init_file_logging(file_log_level, file_name):
 
 def to_file(level, message):
     logging.getLogger(_file_logger_name).log(level, message)
+

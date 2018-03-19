@@ -1,3 +1,5 @@
+import numpy as np
+
 from pysc2.agents import base_agent
 from pysc2.lib import actions
 from pysc2.lib import features
@@ -36,7 +38,8 @@ class MyBaseAgent(base_agent.BaseAgent):
         super().__init__()
         self.obs = None
         self._steps_without_rewards = 0
-        self.step_mul = int(helper.get_command_param_val('--step_mul', remove_from_params=False))
+        self.step_mul = int(helper.get_command_param_val('--step_mul', remove_from_params=False, default_val=8))
+        self._steps_until_rewards_array = np.array([])
 
     def step(self, obs):
         # call the parent class to have pysc2 setup rewards/etc
@@ -46,17 +49,35 @@ class MyBaseAgent(base_agent.BaseAgent):
         # if self.steps < 100:
         #     return actions.FunctionCall(_NO_OP, [])
 
-        if self.steps == 1:
-            self._log_units_location()
+        # self.print_step_debug_data()
 
         if obs.reward > 0:
             r_per_frame = obs.reward / (self._steps_without_rewards * self.step_mul)
-            msg = f'Reward {obs.reward} after {self._steps_without_rewards} steps. R/Frames: {r_per_frame:.2f}'
+            msg = f'Reward after {self._steps_without_rewards} steps. R/Frames: {r_per_frame:.2f}'
             my_log.to_file(logging.INFO, msg)
+            self._steps_until_rewards_array = np.append(self._steps_until_rewards_array, self._steps_without_rewards)
             self._steps_without_rewards = 0
-            self._log_units_location()
         else:
             self._steps_without_rewards += 1
+
+    def reset(self):
+        super(MyBaseAgent, self).reset()
+        if len(self._steps_until_rewards_array):
+            self._check_if_deterministic_agent()
+            my_log.to_file(logging.WARNING, f'Average reward steps:{self._steps_until_rewards_array.mean()}')
+            exit()  # There is no setting to quite after x episodes so  this is a hack for it.
+
+    def _check_if_deterministic_agent(self):
+        # Here an agent is deterministic if it always takes the same num of steps to get rewards
+        set_version = set(self._steps_until_rewards_array)
+        if len(set_version) == len(self._steps_until_rewards_array):
+            # TODO remove this line once this actually starts to work
+            my_log.to_file(logging.WARNING,
+                           f'DETERMINISTIC! Took {self._steps_until_rewards_array[0]} steps every time')
+        else:
+            max_steps = max(self._steps_until_rewards_array)
+            min_steps = min(self._steps_until_rewards_array)
+            my_log.to_file(logging.INFO, f'NON-DETERMINISTIC! Steps between {min_steps} and {max_steps} to get rewards')
 
     def _log_units_location(self):
         own_unit_start_loc_y, own_unit_start_loc_x = self._get_own_unit_locations()
@@ -92,8 +113,6 @@ class AttackAlwaysAgent(MyBaseAgent):
 
     def step(self, obs):
         super(AttackAlwaysAgent, self).step(obs)
-        self.print_step_debug_data()
-
         enemy_y, enemy_x = self._get_enemy_unit_locations()
         enemy_found = enemy_x.any()
 
@@ -113,18 +132,16 @@ class AttackMoveAgent(MyBaseAgent):
 
     def step(self, obs):
         super(AttackMoveAgent, self).step(obs)
-
-        # time.sleep(1/5)
-        # self.print_step_debug_data()
-
         enemy_y, enemy_x = self._get_enemy_unit_locations()
         enemy_found = enemy_x.any()
-        if enemy_found:
+
+        able_to_attack = _ATTACK_SCREEN in self.obs.observation['available_actions']
+        if enemy_found and able_to_attack:
             target = [enemy_x.mean(), enemy_y.mean()]
+            action = _ATTACK_SCREEN if self.steps % 2 == 1 else _MOVE_SCREEN
+            return actions.FunctionCall(action, [_NOT_QUEUED, target])
         else:
             # Hacky code since enemy sometimes moves out of screen range
             marine_y, marine_x = self._get_own_unit_locations()
             target = [marine_x.mean() + 1, marine_y.mean()]
-
-        action = _ATTACK_SCREEN if self.steps % 2 == 1 else _MOVE_SCREEN
-        return actions.FunctionCall(action, [_NOT_QUEUED, target])
+            return actions.FunctionCall(_SELECT_POINT, [_NOT_QUEUED, target])
