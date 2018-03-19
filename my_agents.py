@@ -4,6 +4,10 @@ from pysc2.lib import features
 
 import time
 import helper
+import logging
+
+import my_log
+import helper
 
 # define the features the AI can see
 _PLAYER_RELATIVE = features.SCREEN_FEATURES.player_relative.index
@@ -31,11 +35,22 @@ class MyBaseAgent(base_agent.BaseAgent):
     def __init__(self):
         super().__init__()
         self.obs = None
+        self.steps_without_rewards = 0
+        self.step_mul = int(helper.get_command_param_val('--step_mul', remove_from_params=False))
 
     def step(self, obs):
         # call the parent class to have pysc2 setup rewards/etc
         super(MyBaseAgent, self).step(obs)
         self.obs = obs
+
+        if obs.reward > 0:
+            rs_per_step_mul = self.steps_without_rewards / self.step_mul
+            msg = f'Reward {obs.reward}. {self.steps_without_rewards}/{self.steps} reward/total steps. REWARD_STEPS/STEP_MUL: {rs_per_step_mul}'
+            my_log.to_file(logging.INFO, msg)
+            self.steps_without_rewards = 0
+
+        else:
+            self.steps_without_rewards += 1
 
     def _get_player_relative_view(self):
         """ View from player camera perspective. Returns an NxN np array """
@@ -99,8 +114,4 @@ class AttackMoveAgent(MyBaseAgent):
             target = [marine_x.mean() + 1, marine_y.mean()]
 
         action = _ATTACK_SCREEN if self.steps % 2 == 1 else _MOVE_SCREEN
-        if action == _ATTACK_SCREEN:
-            print("Attack screen")
-        elif action == _MOVE_SCREEN:
-            print("Move screen")
         return actions.FunctionCall(action, [_NOT_QUEUED, target])
