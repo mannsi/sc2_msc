@@ -35,7 +35,7 @@ class MyBaseAgent(base_agent.BaseAgent):
     def __init__(self):
         super().__init__()
         self.obs = None
-        self.steps_without_rewards = 0
+        self._steps_without_rewards = 0
         self.step_mul = int(helper.get_command_param_val('--step_mul', remove_from_params=False))
 
     def step(self, obs):
@@ -43,14 +43,26 @@ class MyBaseAgent(base_agent.BaseAgent):
         super(MyBaseAgent, self).step(obs)
         self.obs = obs
 
-        if obs.reward > 0:
-            rs_per_step_mul = self.steps_without_rewards / self.step_mul
-            msg = f'Reward {obs.reward}. {self.steps_without_rewards}/{self.steps} reward/total steps. REWARD_STEPS/STEP_MUL: {rs_per_step_mul}'
-            my_log.to_file(logging.INFO, msg)
-            self.steps_without_rewards = 0
+        if self.steps == 1:
+            self._log_units_location()
 
+        if obs.reward > 0:
+            rs_per_step_mul = self._steps_without_rewards / self.step_mul
+            msg = f'Reward {obs.reward} after {self._steps_without_rewards} steps. REWARD_STEPS/STEP_MUL: {rs_per_step_mul}'
+            my_log.to_file(logging.INFO, msg)
+            self._steps_without_rewards = 0
+            self._log_units_location()
         else:
-            self.steps_without_rewards += 1
+            self._steps_without_rewards += 1
+
+    def _log_units_location(self):
+        own_unit_start_loc_y, own_unit_start_loc_x = self._get_own_unit_locations()
+        own_unit_start_loc = (own_unit_start_loc_x.mean(), own_unit_start_loc_y.mean())
+
+        enemy_unit_start_loc_y, enemy_unit_start_loc_x = self._get_enemy_unit_locations()
+        enemy_unit_start_loc = (enemy_unit_start_loc_x.mean(), enemy_unit_start_loc_y.mean())
+
+        my_log.to_file(logging.INFO, f'Marine loc: {own_unit_start_loc}, Enemy loc: {enemy_unit_start_loc}')
 
     def _get_player_relative_view(self):
         """ View from player camera perspective. Returns an NxN np array """
