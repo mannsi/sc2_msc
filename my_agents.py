@@ -31,6 +31,10 @@ _SELECT_ADD = [1]
 _NOT_QUEUED = [0]
 
 
+# Stupid way to set parameters because I get errors from absl library if I add a flag it does not recognize
+GLOBAL_PARAM_MAX_EPISODES = None
+
+
 class MyBaseAgent(base_agent.BaseAgent):
     """My base agent"""
 
@@ -49,7 +53,7 @@ class MyBaseAgent(base_agent.BaseAgent):
         # if self.steps < 100:
         #     return actions.FunctionCall(_NO_OP, [])
 
-        # self.print_step_debug_data()
+        self.print_step_debug_data()
 
         if obs.reward > 0:
             r_per_frame = obs.reward / (self._steps_without_rewards * self.step_mul)
@@ -62,7 +66,8 @@ class MyBaseAgent(base_agent.BaseAgent):
 
     def reset(self):
         super(MyBaseAgent, self).reset()
-        if len(self._steps_until_rewards_array):
+
+        if GLOBAL_PARAM_MAX_EPISODES and self.episodes >= GLOBAL_PARAM_MAX_EPISODES:
             self._check_if_deterministic_agent()
             my_log.to_file(logging.WARNING, f'Average reward steps:{self._steps_until_rewards_array.mean()}')
             exit()  # There is no setting to quite after x episodes so  this is a hack for it.

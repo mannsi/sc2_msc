@@ -6,6 +6,7 @@ import pysc2.bin.agent
 
 import my_maps
 import my_log
+import my_agents
 import helper
 
 # Init file logging
@@ -24,6 +25,10 @@ my_log.to_file(logging.WARNING, f'STARTING. Agent:{agent}, Step_mul:{step_mul}')
 
 # Init my map definitions
 my_maps.load_my_maps()
+
+# Dumb way to get my own cmd params to my agents
+max_episodes = int(helper.get_command_param_val('--max_episodes', remove_from_params=True, default_val=0))
+my_agents.GLOBAL_PARAM_MAX_EPISODES = max_episodes
 
 # Run the agent
 app.run(pysc2.bin.agent.main)
