@@ -63,19 +63,7 @@ class MyBaseAgent(base_agent.BaseAgent):
         # self.print_step_debug_data()
 
         if obs.reward > 0:
-            r_per_frame = obs.reward / (self._steps_without_rewards * self._step_mul)
-            msg = f'Reward after {self._steps_without_rewards} steps. R/Frames: {r_per_frame:.2f}'
-            my_log.to_file(logging.INFO, msg)
-            self._steps_until_rewards_array = np.append(self._steps_until_rewards_array, self._steps_without_rewards)
-            self._steps_without_rewards = 0
-
-            my_log.to_file(logging.INFO,f'Marine: {self._marine_location_per_step}')
-            my_log.to_file(logging.INFO,f'SCV: {self._scv_location_per_step}')
-            self._marine_location_per_step = []
-            self._scv_location_per_step = []
-            own_unit_loc, enemy_unit_loc = self._get_units_locations()
-            self._marine_start_location.append(own_unit_loc)
-            self._scv_start_location.append(enemy_unit_loc)
+            self.got_reward(obs.reward)
         else:
             self._steps_without_rewards += 1
             own_unit_loc, enemy_unit_loc = self._get_units_locations()
@@ -89,6 +77,21 @@ class MyBaseAgent(base_agent.BaseAgent):
             self._check_if_deterministic_agent()
             my_log.to_file(logging.INFO, f'Average reward steps:{self._steps_until_rewards_array.mean()}')
             exit()  # There is no setting to quite after x episodes so  this is a hack for it.
+
+    def got_reward(self, reward):
+        r_per_frame = reward / (self._steps_without_rewards * self._step_mul)
+        msg = f'Reward after {self._steps_without_rewards} steps. R/Frames: {r_per_frame:.2f}'
+        my_log.to_file(logging.INFO, msg)
+        self._steps_until_rewards_array = np.append(self._steps_until_rewards_array, self._steps_without_rewards)
+        self._steps_without_rewards = 0
+
+        my_log.to_file(logging.INFO, f'Marine: {self._marine_location_per_step}')
+        my_log.to_file(logging.INFO, f'SCV: {self._scv_location_per_step}')
+        self._marine_location_per_step = []
+        self._scv_location_per_step = []
+        own_unit_loc, enemy_unit_loc = self._get_units_locations()
+        self._marine_start_location.append(own_unit_loc)
+        self._scv_start_location.append(enemy_unit_loc)
 
     def _check_if_deterministic_agent(self):
         # Unable to confirm number of steps until scv dies but there is cool down env randomness for marine attack
@@ -200,7 +203,7 @@ class DiscoverStepsAgent(MyBaseAgent):
         super().__init__()
         self._scv_last_health = 45
         self._steps_since_last_damage = 0
-        self.steps_between_dmg = np.array([])
+        self.steps_between_dmg_list = []
 
     def step(self, obs):
         super().step(obs)
@@ -212,25 +215,13 @@ class DiscoverStepsAgent(MyBaseAgent):
 
         scv_health = self.get_scv_health()
         if scv_health < self._scv_last_health:
-            self.steps_between_dmg = np.append(self.steps_between_dmg, self._steps_since_last_damage)
+            self.steps_between_dmg_list.append(self._steps_since_last_damage)
             self._scv_last_health = scv_health
             self._steps_since_last_damage = 0
         else:
             self._steps_since_last_damage += 1
 
         return self._attack_enemy_action()
-
-    def reset(self):
-        # Needs to be above super because super kills the run before we are able to log.
-        if GLOBAL_PARAM_MAX_EPISODES and self.episodes == GLOBAL_PARAM_MAX_EPISODES:
-            # max_steps = self._steps_between_dmg.max()
-            # min_steps = self._steps_between_dmg.min()
-            # if (max_steps - min_steps) > max_steps * 0.1:
-            #     raise ValueError(f"Difference between dmg steps too high. Max_steps:{max_steps},min_steps:{min_steps}")
-
-            my_log.to_file(logging.WARNING, f'Average steps between damage are {self.steps_between_dmg}')
-
-        super().reset()
 
     def get_scv_health(self):
         scv_location = self._get_enemy_unit_location()
@@ -242,16 +233,36 @@ class DiscoverStepsAgent(MyBaseAgent):
 
 class DiscoverSsmAgent(DiscoverStepsAgent):
     """ Agent that tries to discover move/attack ratios to achieve stutter step micro """
+
+    def __init__(self):
+        super().__init__()
+        self.steps_between_dmg_list_of_lists = []
+
     def step(self, obs):
         super().step(obs)
+
         # For some reason the environment looses selection of my marine
         if _ATTACK_SCREEN not in self.obs.observation['available_actions']:
             my_log.to_file(logging.INFO, f'Unable to attack. Step {self.steps}')
             return self._select_own_unit()
 
         # Only focus on step 2 right now to KISS
-        if len(self.steps_between_dmg) == 1 and self._steps_since_last_damage == GLOBAL_WAIT_AFTER_ATTACK:
+        if len(self.steps_between_dmg_list) == 1 and self._steps_since_last_damage == GLOBAL_WAIT_AFTER_ATTACK:
             # my_log.to_file(logging.WARNING, f'Move cmd on step {self.steps}, {self._steps_since_last_damage} since last damage')
             return self._move_to_enemy_action()
 
         return self._attack_enemy_action()
+
+    def reset(self):
+        # Needs to be above super because super kills the run before we are able to log.
+        self.steps_between_dmg_list = []
+        if GLOBAL_PARAM_MAX_EPISODES and self.episodes == GLOBAL_PARAM_MAX_EPISODES:
+            np_dmg_step_array = np.array(self.steps_between_dmg_list_of_lists)
+            my_log.to_file(logging.WARNING, f'Average steps between damage are {np_dmg_step_array.mean(axis=0)}')
+
+        super().reset()
+
+    def got_reward(self, reward):
+        super().got_reward(reward)
+        self.steps_between_dmg_list_of_lists.append(self.steps_between_dmg_list)
+
