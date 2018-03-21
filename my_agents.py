@@ -5,11 +5,11 @@ from pysc2.lib import actions
 from pysc2.lib import features
 
 import time
-import helper
 import logging
 
 import my_log
 import helper
+import my_plotting
 
 # Screen features
 _PLAYER_RELATIVE = features.SCREEN_FEATURES.player_relative.index
@@ -257,8 +257,10 @@ class DiscoverSsmAgent(DiscoverStepsAgent):
         # Needs to be above super because super kills the run before we are able to log.
         self.steps_between_dmg_list = []
         if GLOBAL_PARAM_MAX_EPISODES and self.episodes == GLOBAL_PARAM_MAX_EPISODES:
-            np_dmg_step_array = np.array(self.steps_between_dmg_list_of_lists)
-            my_log.to_file(logging.WARNING, f'Average steps between damage are {np_dmg_step_array.mean(axis=0)}')
+            np_dmg_steps_means = np.array(self.steps_between_dmg_list_of_lists).mean(axis=0)
+            my_log.to_file(logging.WARNING, f'Average steps between damage are {np_dmg_steps_means}')
+            second_dmg_steps = np_dmg_steps_means[1]  # Start focusing on second attack step. Just to begin somewhere
+            my_plotting.save_results_to_file('ssm_move_steps.txt', GLOBAL_WAIT_AFTER_ATTACK, 1, second_dmg_steps)
 
         super().reset()
 
