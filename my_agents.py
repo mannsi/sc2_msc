@@ -11,8 +11,10 @@ import logging
 import my_log
 import helper
 
-# define the features the AI can see
+# Screen features
 _PLAYER_RELATIVE = features.SCREEN_FEATURES.player_relative.index
+_UNIT_HIT_POINTS = features.SCREEN_FEATURES.unit_hit_points.index
+
 # define contstants for actions
 _NO_OP = actions.FUNCTIONS.no_op.id
 _MOVE_SCREEN = actions.FUNCTIONS.Move_screen.id
@@ -32,7 +34,8 @@ _NOT_QUEUED = [0]
 
 
 # Stupid way to set parameters because I get errors from absl library if I add a flag it does not recognize
-GLOBAL_PARAM_MAX_EPISODES = None
+GLOBAL_PARAM_MAX_EPISODES = -1
+GLOBAL_WAIT_AFTER_ATTACK = -1
 
 
 class MyBaseAgent(base_agent.BaseAgent):
@@ -51,7 +54,7 @@ class MyBaseAgent(base_agent.BaseAgent):
 
     def step(self, obs):
         # call the parent class to have pysc2 setup rewards/etc
-        super(MyBaseAgent, self).step(obs)
+        super().step(obs)
         self.obs = obs
 
         # if self.steps < 100:
@@ -80,11 +83,11 @@ class MyBaseAgent(base_agent.BaseAgent):
             self._scv_location_per_step.append((enemy_unit_loc, self._get_enemy_unit_locations()))
 
     def reset(self):
-        super(MyBaseAgent, self).reset()
+        super().reset()
 
         if GLOBAL_PARAM_MAX_EPISODES and self.episodes > GLOBAL_PARAM_MAX_EPISODES:
             self._check_if_deterministic_agent()
-            my_log.to_file(logging.WARNING, f'Average reward steps:{self._steps_until_rewards_array.mean()}')
+            my_log.to_file(logging.INFO, f'Average reward steps:{self._steps_until_rewards_array.mean()}')
             exit()  # There is no setting to quite after x episodes so  this is a hack for it.
 
     def _check_if_deterministic_agent(self):
@@ -113,31 +116,49 @@ class MyBaseAgent(base_agent.BaseAgent):
             my_log.to_file(logging.INFO, f'DETERMINISTIC AGENT!')
 
     def _get_units_locations(self):
-        own_unit_loc_y, own_unit_loc_x = self._get_own_unit_locations()
-        own_unit_loc = (own_unit_loc_x.mean(), own_unit_loc_y.mean())
-
-        enemy_unit_loc_y, enemy_unit_loc_x = self._get_enemy_unit_locations()
-        enemy_unit_loc = (enemy_unit_loc_x.mean(), enemy_unit_loc_y.mean())
-
+        own_unit_loc = self._get_own_unit_location()
+        enemy_unit_loc = self._get_enemy_unit_location()
         return own_unit_loc, enemy_unit_loc
 
     def _get_player_relative_view(self):
         """ View from player camera perspective. Returns an NxN np array """
         return self.obs.observation['screen'][_PLAYER_RELATIVE]
 
+    def _get_own_unit_location(self):
+        """ Mean values of friendly unit coordinates, returned as a (x,y) tuple """
+        own_unit_loc_y, own_unit_loc_x = self._get_own_unit_locations()
+        return own_unit_loc_x.mean(), own_unit_loc_y.mean()
+
     def _get_own_unit_locations(self):
         """ My own unit locations as a tuple of (np_array_of_Y_locations, np_array_of_X_locations)"""
         return (self._get_player_relative_view() == _UNITS_MINE).nonzero()
+
+    def _get_enemy_unit_location(self):
+        """ Mean values of enemy unit coordinates, returned as a (x,y) tuple """
+        enemy_unit_loc_y, enemy_unit_loc_x = self._get_enemy_unit_locations()
+        return enemy_unit_loc_x.mean(), enemy_unit_loc_y.mean()
 
     def _get_enemy_unit_locations(self):
         """ Enemy unit locations as a tuple of (np_array_of_Y_locations, np_array_of_X_locations)"""
         return (self._get_player_relative_view() == _UNITS_ENEMY).nonzero()
 
-    def print_step_debug_data(self):
+    def _attack_enemy_action(self):
+        target = self._get_enemy_unit_location()
+        return actions.FunctionCall(_ATTACK_SCREEN, [_NOT_QUEUED, target])
+
+    def _move_to_enemy_action(self):
+        target = self._get_enemy_unit_location()
+        return actions.FunctionCall(_MOVE_SCREEN, [_NOT_QUEUED, target])
+
+    def _select_own_unit(self):
+        target = self._get_own_unit_location()
+        return actions.FunctionCall(_SELECT_POINT, [_NOT_QUEUED, target])
+
+    def _print_step_debug_data(self):
         enemy_unit_x, enemy_unit_y = self._get_enemy_unit_locations()
         print(f'Step {self.steps}, reward {self.obs.reward}, scv_alive {enemy_unit_x.any()}')
 
-    def print_available_actions(self):
+    def _print_available_actions(self):
         print(helper.action_ids_to_action_names(self.obs.observation['available_actions']))
 
 
@@ -145,36 +166,92 @@ class AttackAlwaysAgent(MyBaseAgent):
     """Agent that attacks the enemy on every action"""
 
     def step(self, obs):
-        super(AttackAlwaysAgent, self).step(obs)
-        enemy_y, enemy_x = self._get_enemy_unit_locations()
+        super().step(obs)
 
-        able_to_attack = _ATTACK_SCREEN in self.obs.observation['available_actions']
-        if able_to_attack:
-            target = [enemy_x.mean(), enemy_y.mean()]
-            return actions.FunctionCall(_ATTACK_SCREEN, [_NOT_QUEUED, target])
-        else:
-            # For some reason marine is not always able to attack the enemy...
-            marine_y, marine_x = self._get_own_unit_locations()
-            target = [marine_x.mean() + 1, marine_y.mean()]
-            my_log.to_file(logging.INFO, 'Had to manually select marine')
-            return actions.FunctionCall(_SELECT_POINT, [_NOT_QUEUED, target])
+        # For some reason the environment looses selection of my marine
+        if _ATTACK_SCREEN not in self.obs.observation['available_actions']:
+            my_log.to_file(logging.INFO, f'Unable to attack. Step {self.steps}')
+            return self._select_own_unit()
+
+        return self._attack_enemy_action()
 
 
 class AttackMoveAgent(MyBaseAgent):
     """Agent that alternates between attacking and moving towards enemy"""
 
     def step(self, obs):
-        super(AttackMoveAgent, self).step(obs)
-        enemy_y, enemy_x = self._get_enemy_unit_locations()
+        super().step(obs)
 
-        able_to_attack = _ATTACK_SCREEN in self.obs.observation['available_actions']
-        if able_to_attack:
-            target = [enemy_x.mean(), enemy_y.mean()]
-            action = _ATTACK_SCREEN if self.steps % 2 == 1 else _MOVE_SCREEN
-            return actions.FunctionCall(action, [_NOT_QUEUED, target])
+        # For some reason the environment looses selection of my marine
+        if _ATTACK_SCREEN not in self.obs.observation['available_actions']:
+            my_log.to_file(logging.INFO, f'Unable to attack. Step {self.steps}')
+            return self._select_own_unit()
+
+        if self.steps % 2 == 1:
+            return self._attack_enemy_action()
         else:
-            # For some reason marine is not always able to attack the enemy...
-            marine_y, marine_x = self._get_own_unit_locations()
-            target = [marine_x.mean() + 1, marine_y.mean()]
-            my_log.to_file(logging.INFO, 'Had to manually select marine')
-            return actions.FunctionCall(_SELECT_POINT, [_NOT_QUEUED, target])
+            return self._move_to_enemy_action()
+
+
+class DiscoverStepsAgent(MyBaseAgent):
+    """Agent that maps how many steps it takes to damage the SCV"""
+
+    def __init__(self):
+        super().__init__()
+        self._scv_last_health = 45
+        self._steps_since_last_damage = 0
+        self.steps_between_dmg = np.array([])
+
+    def step(self, obs):
+        super().step(obs)
+
+        # For some reason the environment looses selection of my marine
+        if _ATTACK_SCREEN not in self.obs.observation['available_actions']:
+            my_log.to_file(logging.INFO, f'Unable to attack. Step {self.steps}')
+            return self._select_own_unit()
+
+        scv_health = self.get_scv_health()
+        if scv_health < self._scv_last_health:
+            self.steps_between_dmg = np.append(self.steps_between_dmg, self._steps_since_last_damage)
+            self._scv_last_health = scv_health
+            self._steps_since_last_damage = 0
+        else:
+            self._steps_since_last_damage += 1
+
+        return self._attack_enemy_action()
+
+    def reset(self):
+        # Needs to be above super because super kills the run before we are able to log.
+        if GLOBAL_PARAM_MAX_EPISODES and self.episodes == GLOBAL_PARAM_MAX_EPISODES:
+            # max_steps = self._steps_between_dmg.max()
+            # min_steps = self._steps_between_dmg.min()
+            # if (max_steps - min_steps) > max_steps * 0.1:
+            #     raise ValueError(f"Difference between dmg steps too high. Max_steps:{max_steps},min_steps:{min_steps}")
+
+            my_log.to_file(logging.WARNING, f'Average steps between damage are {self.steps_between_dmg}')
+
+        super().reset()
+
+    def get_scv_health(self):
+        scv_location = self._get_enemy_unit_location()
+        return self._get_unit_health(scv_location)
+
+    def _get_unit_health(self, location):
+        return self.obs.observation['screen'][_UNIT_HIT_POINTS][int(location[1]), int(location[0])]
+
+
+class DiscoverSsmAgent(DiscoverStepsAgent):
+    """ Agent that tries to discover move/attack ratios to achieve stutter step micro """
+    def step(self, obs):
+        super().step(obs)
+        # For some reason the environment looses selection of my marine
+        if _ATTACK_SCREEN not in self.obs.observation['available_actions']:
+            my_log.to_file(logging.INFO, f'Unable to attack. Step {self.steps}')
+            return self._select_own_unit()
+
+        # Only focus on step 2 right now to KISS
+        if len(self.steps_between_dmg) == 1 and self._steps_since_last_damage == GLOBAL_WAIT_AFTER_ATTACK:
+            # my_log.to_file(logging.WARNING, f'Move cmd on step {self.steps}, {self._steps_since_last_damage} since last damage')
+            return self._move_to_enemy_action()
+
+        return self._attack_enemy_action()

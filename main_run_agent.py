@@ -21,14 +21,19 @@ except ValueError:
 # Log the run conditions
 agent = helper.get_command_param_val('--agent', remove_from_params=False, default_val='my_agents.AttackAlwaysAgent')
 step_mul = helper.get_command_param_val('--step_mul', remove_from_params=False, default_val=8)
-my_log.to_file(logging.WARNING, f'STARTING. Agent:{agent}, Step_mul:{step_mul}')
+
+# Dumb way to get my own cmd params to my agents
+max_episodes = int(helper.get_command_param_val('--max_episodes', remove_from_params=True, default_val=0))
+wait_after_attack = int(helper.get_command_param_val('--wait_after_attack', remove_from_params=True, default_val=0))
+my_agents.GLOBAL_PARAM_MAX_EPISODES = max_episodes
+my_agents.GLOBAL_WAIT_AFTER_ATTACK = wait_after_attack
+
+my_log.to_file(logging.WARNING, f'STARTING. Agent:{agent}, Step_mul:{step_mul}, Max_episodes:{max_episodes}, Wait_after_attack:{wait_after_attack}')
 
 # Init my map definitions
 my_maps.load_my_maps()
 
-# Dumb way to get my own cmd params to my agents
-max_episodes = int(helper.get_command_param_val('--max_episodes', remove_from_params=True, default_val=0))
-my_agents.GLOBAL_PARAM_MAX_EPISODES = max_episodes
+
 
 # Run the agent
 app.run(pysc2.bin.agent.main)
