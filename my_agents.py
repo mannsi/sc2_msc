@@ -82,7 +82,7 @@ class MyBaseAgent(base_agent.BaseAgent):
     def reset(self):
         super(MyBaseAgent, self).reset()
 
-        if GLOBAL_PARAM_MAX_EPISODES and self.episodes >= GLOBAL_PARAM_MAX_EPISODES:
+        if GLOBAL_PARAM_MAX_EPISODES and self.episodes > GLOBAL_PARAM_MAX_EPISODES:
             self._check_if_deterministic_agent()
             my_log.to_file(logging.WARNING, f'Average reward steps:{self._steps_until_rewards_array.mean()}')
             exit()  # There is no setting to quite after x episodes so  this is a hack for it.
