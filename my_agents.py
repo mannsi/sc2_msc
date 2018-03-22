@@ -81,13 +81,13 @@ class MyBaseAgent(base_agent.BaseAgent):
 
     def got_reward(self, reward):
         r_per_frame = reward / (self._steps_without_rewards * self._step_mul)
-        msg = f'Reward after {self._steps_without_rewards} steps. R/Frames: {r_per_frame:.2f}'
+        msg = f'Reward after {self._steps_without_rewards}/{self.steps} steps. R/Frames: {r_per_frame:.2f}'
         my_log.to_file(logging.INFO, msg)
         self._steps_until_rewards_array = np.append(self._steps_until_rewards_array, self._steps_without_rewards)
         self._steps_without_rewards = 0
 
-        my_log.to_file(logging.INFO, f'Marine: {self._marine_location_per_step}')
-        my_log.to_file(logging.INFO, f'SCV: {self._scv_location_per_step}')
+        # my_log.to_file(logging.INFO, f'Marine: {self._marine_location_per_step}')
+        # my_log.to_file(logging.INFO, f'SCV: {self._scv_location_per_step}')
         self._marine_location_per_step = []
         self._scv_location_per_step = []
         own_unit_loc, enemy_unit_loc = self._get_units_locations()
@@ -154,9 +154,12 @@ class MyBaseAgent(base_agent.BaseAgent):
         target = self._get_enemy_unit_location()
         return actions.FunctionCall(_MOVE_SCREEN, [_NOT_QUEUED, target])
 
-    def _select_own_unit(self):
+    def _select_own_unit_action(self):
         target = self._get_own_unit_location()
         return actions.FunctionCall(_SELECT_POINT, [_NOT_QUEUED, target])
+
+    def _no_op_action(self):
+        return actions.FunctionCall(_NO_OP, [])
 
     def _print_step_debug_data(self):
         enemy_unit_x, enemy_unit_y = self._get_enemy_unit_locations()
@@ -174,8 +177,9 @@ class AttackAlwaysAgent(MyBaseAgent):
 
         # For some reason the environment looses selection of my marine
         if _ATTACK_SCREEN not in self.obs.observation['available_actions']:
-            my_log.to_file(logging.INFO, f'Unable to attack. Step {self.steps}')
-            return self._select_own_unit()
+            # For reasons unknown after an episode a step is repeated and attack screen action is not available
+            # I just return no_op and everything is fine next step.
+            return self._no_op_action()
 
         return self._attack_enemy_action()
 
@@ -189,7 +193,7 @@ class AttackMoveAgent(MyBaseAgent):
         # For some reason the environment looses selection of my marine
         if _ATTACK_SCREEN not in self.obs.observation['available_actions']:
             my_log.to_file(logging.INFO, f'Unable to attack. Step {self.steps}')
-            return self._select_own_unit()
+            return self._select_own_unit_action()
 
         if self.steps % 2 == 1:
             return self._attack_enemy_action()
@@ -212,8 +216,9 @@ class DiscoverStepsAgent(MyBaseAgent):
 
         # For some reason the environment looses selection of my marine
         if _ATTACK_SCREEN not in self.obs.observation['available_actions']:
-            my_log.to_file(logging.INFO, f'Unable to attack. Step {self.steps}')
-            return self._select_own_unit()
+            # For reasons unknown after an episode a step is repeated and attack screen action is not available
+            # I just return no_op and everything is fine next step.
+            return self._no_op_action()
 
         scv_health = self.get_scv_health()
         if scv_health < self._scv_last_health:
@@ -247,7 +252,9 @@ class DiscoverSsmAgent(DiscoverStepsAgent):
 
         # For some reason the environment looses selection of my marine
         if _ATTACK_SCREEN not in self.obs.observation['available_actions']:
-            return self._select_own_unit()
+            # For reasons unknown after an episode a step is repeated and attack screen action is not available
+            # I just return no_op and everything is fine next step.
+            return self._no_op_action()
 
         if GLOBAL_WAIT_AFTER_ATTACK <= self._steps_since_last_damage  and \
                 (self._steps_since_last_damage - GLOBAL_WAIT_AFTER_ATTACK) < GLOBAL_MOVE_STEPS_AFTER_ATTACK:
