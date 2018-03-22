@@ -36,6 +36,7 @@ _NOT_QUEUED = [0]
 # Stupid way to set parameters because I get errors from absl library if I add a flag it does not recognize
 GLOBAL_PARAM_MAX_EPISODES = -1
 GLOBAL_WAIT_AFTER_ATTACK = -1
+GLOBAL_MOVE_STEPS_AFTER_ATTACK = -1
 
 
 class MyBaseAgent(base_agent.BaseAgent):
@@ -204,6 +205,7 @@ class DiscoverStepsAgent(MyBaseAgent):
         self._scv_last_health = 45
         self._steps_since_last_damage = 0
         self.steps_between_dmg_list = []
+        self.scv_has_taken_first_dmg = False
 
     def step(self, obs):
         super().step(obs)
@@ -218,7 +220,8 @@ class DiscoverStepsAgent(MyBaseAgent):
             self.steps_between_dmg_list.append(self._steps_since_last_damage)
             self._scv_last_health = scv_health
             self._steps_since_last_damage = 0
-        else:
+            self.scv_has_taken_first_dmg = True
+        elif self.scv_has_taken_first_dmg:
             self._steps_since_last_damage += 1
 
         return self._attack_enemy_action()
@@ -237,18 +240,17 @@ class DiscoverSsmAgent(DiscoverStepsAgent):
     def __init__(self):
         super().__init__()
         self.steps_between_dmg_list_of_lists = []
+        self.steps_to_kill_scv = []
 
     def step(self, obs):
         super().step(obs)
 
         # For some reason the environment looses selection of my marine
         if _ATTACK_SCREEN not in self.obs.observation['available_actions']:
-            my_log.to_file(logging.INFO, f'Unable to attack. Step {self.steps}')
             return self._select_own_unit()
 
-        # Only focus on step 2 right now to KISS
-        if len(self.steps_between_dmg_list) == 1 and self._steps_since_last_damage == GLOBAL_WAIT_AFTER_ATTACK:
-            # my_log.to_file(logging.WARNING, f'Move cmd on step {self.steps}, {self._steps_since_last_damage} since last damage')
+        if GLOBAL_WAIT_AFTER_ATTACK <= self._steps_since_last_damage  and \
+                (self._steps_since_last_damage - GLOBAL_WAIT_AFTER_ATTACK) < GLOBAL_MOVE_STEPS_AFTER_ATTACK:
             return self._move_to_enemy_action()
 
         return self._attack_enemy_action()
@@ -259,12 +261,26 @@ class DiscoverSsmAgent(DiscoverStepsAgent):
         if GLOBAL_PARAM_MAX_EPISODES and self.episodes == GLOBAL_PARAM_MAX_EPISODES:
             np_dmg_steps_means = np.array(self.steps_between_dmg_list_of_lists).mean(axis=0)
             my_log.to_file(logging.WARNING, f'Average steps between damage are {np_dmg_steps_means}')
-            second_dmg_steps = np_dmg_steps_means[1]  # Start focusing on second attack step. Just to begin somewhere
-            my_plotting.save_results_to_file('ssm_move_steps.txt', GLOBAL_WAIT_AFTER_ATTACK, 1, second_dmg_steps)
+
+            avg_steps_to_kill = np.array(self.steps_to_kill_scv).mean()
+
+            my_plotting.save_results_to_file(
+                'ssm_move_steps.txt',
+                GLOBAL_WAIT_AFTER_ATTACK,
+                GLOBAL_MOVE_STEPS_AFTER_ATTACK,
+                np_dmg_steps_means.mean(),
+                avg_steps_to_kill
+            )
 
         super().reset()
 
     def got_reward(self, reward):
         super().got_reward(reward)
         self.steps_between_dmg_list_of_lists.append(self.steps_between_dmg_list)
+        first_reward = len(self.steps_to_kill_scv) == 0
+        if first_reward:
+            self.steps_to_kill_scv.append(self.steps)
+        else:
+            last_reward_step = self.steps_to_kill_scv[-1]
+            self.steps_to_kill_scv.append(self.steps - last_reward_step)
 

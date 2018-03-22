@@ -25,10 +25,12 @@ step_mul = helper.get_command_param_val('--step_mul', remove_from_params=False, 
 # Dumb way to get my own cmd params to my agents
 max_episodes = int(helper.get_command_param_val('--max_episodes', remove_from_params=True, default_val=0))
 wait_after_attack = int(helper.get_command_param_val('--wait_after_attack', remove_from_params=True, default_val=0))
+move_steps_after_attack = int(helper.get_command_param_val('--move_steps_after_attack', remove_from_params=True, default_val=1))
 my_agents.GLOBAL_PARAM_MAX_EPISODES = max_episodes
 my_agents.GLOBAL_WAIT_AFTER_ATTACK = wait_after_attack
+my_agents.GLOBAL_MOVE_STEPS_AFTER_ATTACK = move_steps_after_attack
 
-my_log.to_file(logging.WARNING, f'STARTING. Agent:{agent}, Step_mul:{step_mul}, Max_episodes:{max_episodes}, Wait_after_attack:{wait_after_attack}')
+my_log.to_file(logging.WARNING, f'STARTING. Agent:{agent}, Step_mul:{step_mul}, Max_episodes:{max_episodes}, Wait_after_attack:{wait_after_attack}, Moves_after_attack:{move_steps_after_attack}')
 
 # Init my map definitions
 my_maps.load_my_maps()

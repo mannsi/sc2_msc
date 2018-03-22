@@ -2,21 +2,19 @@ import os
 import csv
 
 import matplotlib.pyplot as plt
-from matplotlib.ticker import FormatStrFormatter
-import matplotlib.ticker as ticker
 
 
-def save_results_to_file(file_name, move_steps_after_dmg, num_move_steps, steps_until_dmg):
+def save_results_to_file(file_name, move_steps_after_dmg, num_move_steps, avg_steps_until_dmg, avg_steps_to_kill_scv):
     file_path = os.path.join('results',file_name)
     if not os.path.exists(file_path):
         with open(file_path, 'a', newline='') as csvfile:
             writer = csv.writer(csvfile, delimiter=' ', quotechar='|', quoting=csv.QUOTE_MINIMAL)
             writer.writerow(
-                ['move_steps_after_dmg', 'num_move_steps', 'steps_until_dmg'])
+                ['move_steps_after_dmg', 'num_move_steps', 'steps_until_dmg', 'avg_steps_to_kill_scv'])
 
     with open(file_path, 'a', newline='') as csvfile:
         writer = csv.writer(csvfile, delimiter=' ', quotechar='|', quoting=csv.QUOTE_MINIMAL)
-        writer.writerow([move_steps_after_dmg, num_move_steps, steps_until_dmg])
+        writer.writerow([move_steps_after_dmg, num_move_steps, avg_steps_until_dmg, avg_steps_to_kill_scv])
         csvfile.flush()
 
 
@@ -38,6 +36,14 @@ def plot_ssm_results(file_name, output_file_name, plt_title):
     steps_until_dmg = columns.pop(0)
     steps_until_dmg.pop(0)  # Remove header
     steps_until_dmg = [float(x) for x in steps_until_dmg]
+
+    avg_steps_to_kill_scv = columns.pop(0)
+    avg_steps_to_kill_scv.pop(0)  # Remove header
+    avg_steps_to_kill_scv = [float(x) for x in avg_steps_to_kill_scv]
+
+
+    print(max(avg_steps_to_kill_scv))
+    print(min(avg_steps_to_kill_scv))
 
     fig = plt.figure()
     plt.xlabel('Wait steps after dmg')
