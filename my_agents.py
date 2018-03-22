@@ -126,7 +126,7 @@ class MyBaseAgent(base_agent.BaseAgent):
 
     def _get_player_relative_view(self):
         """ View from player camera perspective. Returns an NxN np array """
-        return self.obs.observation['screen'][_PLAYER_RELATIVE]
+        return self.obs.observation["feature_screen"][_PLAYER_RELATIVE]
 
     def _get_own_unit_location(self):
         """ Mean values of friendly unit coordinates, returned as a (x,y) tuple """
@@ -231,7 +231,7 @@ class DiscoverStepsAgent(MyBaseAgent):
         return self._get_unit_health(scv_location)
 
     def _get_unit_health(self, location):
-        return self.obs.observation['screen'][_UNIT_HIT_POINTS][int(location[1]), int(location[0])]
+        return self.obs.observation["feature_screen"][_UNIT_HIT_POINTS][int(location[1]), int(location[0])]
 
 
 class DiscoverSsmAgent(DiscoverStepsAgent):
