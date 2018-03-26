@@ -15,6 +15,9 @@ FLAGS([__file__])
 # CartPole-v0
 env = OpenAIGym('SC2CollectMineralShards-v2', visualize=False)
 
+print(env.states)
+print(env.actions)
+
 # Network as list of layers
 network_spec = [
     dict(type='conv2d', size=64),
