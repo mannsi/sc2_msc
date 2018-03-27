@@ -2,7 +2,6 @@ import logging
 import numpy as np
 import gym
 from gym import spaces
-from gym.utils import seeding
 from pysc2.env import sc2_env
 from pysc2.env.environment import StepType
 from pysc2.lib import actions, features
@@ -13,12 +12,17 @@ _MAP_NAME = 'DefeatScv'
 _PLAYER_RELATIVE = features.SCREEN_FEATURES.player_relative.index
 _PLAYER_RELATIVE_SCALE = features.SCREEN_FEATURES.player_relative.scale
 
+# Available actions
 _NO_OP = actions.FUNCTIONS.no_op.id
+_NO_OP_INDEX = 0
+_MOVE_SCREEN = actions.FUNCTIONS.Move_screen.id
+_MOVE_SCREEN_INDEX = 1
+_ATTACK_SCREEN = actions.FUNCTIONS.Attack_screen.id
+_ATTACK_SCREEN_INDEX = 2
 
+# Not a real action but performed at start of episode
 _SELECT_ARMY = actions.FUNCTIONS.select_army.id
 _SELECT_ALL = [0]
-
-_MOVE_SCREEN = actions.FUNCTIONS.Move_screen.id
 _NOT_QUEUED = [0]
 
 logger = logging.getLogger(__name__)
@@ -49,16 +53,24 @@ class MarineVsScvEnv(gym.Env):
         self._observation_space = None
 
     def _get_action_space(self):
-        # TODO document what this returns
+        # Returns possible actions.
         screen_shape = self.observation_spec[0]["feature_screen"][1:]
-        return spaces.MultiDiscrete([s for s in screen_shape])
+        num_available_actions = 3
+        return spaces.MultiDiscrete([num_available_actions] + [s for s in screen_shape])
 
-    def _translate_action(self, action):
-        # TODO document what this returns
-        for ix, act in enumerate(action):
-            if act < 0 or act > self.action_space.nvec[ix]:
-                return [_NO_OP]
-        return [_MOVE_SCREEN, _NOT_QUEUED, action]
+    def _translate_action(self, action_params):
+        # Maps the action parameter (list of ints) to an actual agent action
+        action_index = action_params[0]
+
+        target = action_params[1:]
+        if action_index == _NO_OP_INDEX:
+            return [_NO_OP]
+        elif action_index == _MOVE_SCREEN_INDEX:
+            return [_MOVE_SCREEN, _NOT_QUEUED, target]
+        elif action_index == _ATTACK_SCREEN_INDEX:
+            return [_ATTACK_SCREEN, _NOT_QUEUED, target]
+        else:
+            raise ValueError(f"Got unexpected action index {action_index}")
 
     def reset(self):
         if self._episode > 0:
@@ -86,9 +98,6 @@ class MarineVsScvEnv(gym.Env):
 
     def _safe_step(self, action):
         self._num_step += 1
-        if action[0] not in self.available_actions:
-            logger.warning("Attempted unavailable action: %s", action)
-            action = [_NO_OP]
         try:
             obs = self._env.step([actions.FunctionCall(action[0], action[1:])])[0]
         except KeyboardInterrupt:
@@ -101,16 +110,19 @@ class MarineVsScvEnv(gym.Env):
         reward = obs.reward
         self._episode_reward += reward
         self._total_reward += reward
-        return obs, reward, obs.step_type == StepType.LAST, {}
+        is_last_step = obs.step_type == StepType.LAST
+        return obs, reward, is_last_step, {}
 
     def _get_observation_space(self):
-        # TODO document what this returns
-        screen_shape = (1, ) + self.observation_spec[0]["feature_screen"][1:]
+        # TODO edit so more feature maps are available to the agent.
+        # Get observation space which is a 2D map with player id int values
+        screen_shape = (1, ) + self.observation_spec[0]["feature_screen"][1:]  # Convert from 17 feature maps to 1
         space = spaces.Box(low=0, high=_PLAYER_RELATIVE_SCALE, shape=screen_shape)
         return space
 
     def _extract_observation(self, obs):
-        # TODO document what this returns
+        # TODO I probably need to edit this so the agent sees f.x. unit health. Maybe I also need to edit so agent sees multiple timesteps ?
+        # Take raw observations, filter them down to just player_relative feature map and finally reshape.
         obs = obs.observation["feature_screen"][_PLAYER_RELATIVE]
         obs = obs.reshape(self.observation_space.shape)
         return obs
@@ -129,28 +141,21 @@ class MarineVsScvEnv(gym.Env):
 
     @property
     def action_space(self):
-        # TODO document what this returns
+        # Get possible actions that an agent can take
         if self._action_space is None:
             self._action_space = self._get_action_space()
         return self._action_space
 
     @property
-    def action_spec(self):
-        # TODO document what this returns
-        if self._env is None:
-            self._init_env()
-        return self._env.action_spec()
-
-    @property
     def observation_space(self):
-        # TODO document what this returns
+        # Get observation space which is a 2D map with player id int values
         if self._observation_space is None:
             self._observation_space = self._get_observation_space()
         return self._observation_space
 
     @property
     def observation_spec(self):
-        # TODO document what this returns
+        # Return possible observations
         if self._env is None:
             self._init_env()
         return self._env.observation_spec()

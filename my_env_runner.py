@@ -11,54 +11,14 @@ from absl import flags
 from tensorforce.execution import Runner
 from tensorforce.contrib.openai_gym import OpenAIGym
 
-import agents.ppo
+from agents import ppo, random
 import networks.first_network
 
 
 __description__ = 'Run a scripted example using the SC2MoveToBeacon-v1 environment.'
-_PLAYER_NEUTRAL = 3  # beacon/minerals
-
-
-class MoveToBeacon2d:
-    def __init__(self, step_mul=None):
-        self.env_name = "MarineVsScvEnv-v0"
-        self.step_mul = step_mul
-
-    def run(self, num_episodes=1):
-        environment = OpenAIGym(self.env_name)
-
-        print(environment.states)
-        print(environment.actions)
-
-        env = gym.make(self.env_name)
-        env.settings['step_mul'] = self.step_mul
-
-        episode_rewards = np.zeros((num_episodes, ), dtype=np.int32)
-        for ix in range(num_episodes):
-            obs = env.reset()
-
-            done = False
-            while not done:
-                action = self.get_action(env, obs)
-                obs, reward, done, _ = env.step(action)
-
-            episode_rewards[ix] = env.episode_reward
-
-        env.close()
-
-        return episode_rewards
-
-    def get_action(self, env, obs):
-        neutral_y, neutral_x = (obs[0] == _PLAYER_NEUTRAL).nonzero()
-        if not neutral_y.any():
-            # raise Exception("Beacon not found!")
-            target = [0, 0]
-        else:
-            target = [int(neutral_x.mean()), int(neutral_y.mean())]
-        return target
-
 
 rewards = []
+
 
 def main():
     FLAGS = flags.FLAGS
@@ -69,7 +29,7 @@ def main():
                         help='number of episodes to run')
     parser.add_argument('--step-mul', type=int, default=None,
                         help='number of game steps to take per turn')
-    parser.add_argument('--agent_type', type=str, default='ppo',
+    parser.add_argument('--agent_type', type=str, default='random',
                         help='Which of the predefined agents to run')
     parser.add_argument('--env_id', type=str, default='MarineVsScvEnv-v0',
                         help='Id of the environment to use. See envs package for possible envs')
@@ -91,9 +51,11 @@ def main():
         network = networks.first_network.get_network()
 
     if args.agent_type == 'ppo':
-        agent = agents.ppo.get_agent(env, network, saver)
+        agent = ppo.get_agent(env, network, saver)
+    elif args.agent_type == 'random':
+        agent = random.get_agent(env, saver)
     else:
-        agent = agents.ppo.get_agent(env, network, saver)
+        agent = ppo.get_agent(env, network, saver)
 
     # Create the runner
     runner = Runner(agent=agent, environment=env)
