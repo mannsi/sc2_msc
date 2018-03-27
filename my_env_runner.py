@@ -11,7 +11,7 @@ from absl import flags
 from tensorforce.execution import Runner
 from tensorforce.contrib.openai_gym import OpenAIGym
 
-from agents import ppo, random
+from agents import ppo, random, always_attack_scv
 import networks.first_network
 
 
@@ -54,6 +54,8 @@ def main():
         agent = ppo.get_agent(env, network, saver)
     elif args.agent_type == 'random':
         agent = random.get_agent(env, saver)
+    elif args.agent_type == 'always_attack_scv':
+        agent = always_attack_scv.get_agent(env, saver)
     else:
         agent = ppo.get_agent(env, network, saver)
 
