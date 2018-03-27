@@ -113,13 +113,6 @@ def main():
         ar=np.mean(runner.episode_rewards[-100:]))
     )
 
-    # example = MoveToBeacon2d(args.step_mul)
-    # rewards = example.run(args.num_episodes)
-    # print('Total reward: {}'.format(rewards.sum()))
-    # print('Average reward: {} +/- {}'.format(rewards.mean(), rewards.std()))
-    # print('Minimum reward: {}'.format(rewards.min()))
-    # print('Maximum reward: {}'.format(rewards.max()))
-
 
 if __name__ == "__main__":
     main()
