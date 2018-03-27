@@ -4,7 +4,7 @@ import os
 import absl.app as app
 import pysc2.bin.agent
 
-import my_maps
+from maps import my_maps
 import my_log
 import my_agents
 import helper
