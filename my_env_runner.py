@@ -6,7 +6,6 @@ import maps
 
 import argparse
 import numpy as np
-import gym
 from absl import flags
 from tensorforce.execution import Runner
 from tensorforce.contrib.openai_gym import OpenAIGym
@@ -25,9 +24,9 @@ def main():
     FLAGS([__file__])
 
     parser = argparse.ArgumentParser(description=__description__)
-    parser.add_argument('--num-episodes', type=int, default=10,
+    parser.add_argument('--num_episodes', type=int, default=10,
                         help='number of episodes to run')
-    parser.add_argument('--step-mul', type=int, default=None,
+    parser.add_argument('--step_mul', type=int, required=True,
                         help='number of game steps to take per turn')
     parser.add_argument('--agent_type', type=str, default='always_attack_scv',
                         help='Which of the predefined agents to run')
@@ -35,9 +34,15 @@ def main():
                         help='Id of the environment to use. See envs package for possible envs')
     parser.add_argument('--network', type=str, default='first_network',
                         help='Which network configuration to use')
+    parser.add_argument('--render', action='store_true', help='To render or not using pygame. Default off')
+    parser.add_argument('--map_name', type=str, default='DefeatScv',
+                        help='Map to use')
     args = parser.parse_args()
 
     env = OpenAIGym(args.env_id)
+    env.gym.default_settings['step_mul'] = args.step_mul
+    env.gym.default_settings['map_name'] = args.map_name
+    env.gym.default_settings['visualize'] = args.render
 
     # saver = {
     #     'directory': './model',
@@ -70,7 +75,7 @@ def main():
         rewards += [r.episode_rewards[-1]]
         return True
 
-    runner.run(episodes=10, episode_finished=episode_finished)
+    runner.run(episodes=args.num_episodes, episode_finished=episode_finished)
 
     print("Learning finished. Total episodes: {ep}. Average reward of last 100 episodes: {ar}.".format(
         ep=runner.episode,

@@ -1,13 +1,10 @@
 import logging
-import numpy as np
 import gym
 from gym import spaces
 from pysc2.env import sc2_env
 from pysc2.env.environment import StepType
 from pysc2.lib import actions, features
 
-
-_MAP_NAME = 'DefeatScv'
 
 _PLAYER_RELATIVE = features.SCREEN_FEATURES.player_relative.index
 _PLAYER_RELATIVE_SCALE = features.SCREEN_FEATURES.player_relative.scale
@@ -33,13 +30,11 @@ class MarineVsScvEnv(gym.Env):
     metadata = {'render.modes': [None, 'human']}
     default_settings = dict(
         feature_screen_size=84,
-        feature_minimap_size=64,
-        visualize=False,
+        feature_minimap_size=64
     )
 
     def __init__(self, **kwargs):
         super().__init__()
-        kwargs['map_name'] = _MAP_NAME
         self._kwargs = kwargs
         self._env = None
 
