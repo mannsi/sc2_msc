@@ -1,8 +1,11 @@
-import numpy as np
-
 from tensorforce.agents import Agent
 from tensorforce.models.random_model import RandomModel
-from tensorforce.contrib.sanity_check_specs import sanity_check_execution_spec
+
+import envs.marine_vs_scv
+
+_UNITS_MINE = 1
+_UNITS_ENEMY = 4
+_ATTACK_SCREEN_ACTION_INDEX = envs.marine_vs_scv._ATTACK_SCREEN_ACTION_INDEX
 
 
 def get_agent(env, saver):
@@ -17,6 +20,7 @@ def get_agent(env, saver):
         actions=env.actions,
         saver=saver)
 
+
 class AlwaysAttackScv(Agent):
     def __init__(
         self,
@@ -28,7 +32,6 @@ class AlwaysAttackScv(Agent):
         device=None,
         saver=None,
         summarizer=None,
-        execution=None,
     ):
         """
         Initializes the random agent.
@@ -55,7 +58,6 @@ class AlwaysAttackScv(Agent):
         self.device = device
         self.saver = saver
         self.summarizer = summarizer
-        self.execution = sanity_check_execution_spec(execution)
 
         super().__init__(
             states=states,
@@ -79,41 +81,52 @@ class AlwaysAttackScv(Agent):
             Scalar value of the action or dict of multiple actions the agent wants to execute.
             (fetched_tensors) Optional dict() with named tensors fetched
         """
-        self.current_internals = self.next_internals
+        enemy_location = self._get_enemy_unit_location(states)
 
-        if self.unique_state:
-            self.current_states = dict(state=np.asarray(states))
-        else:
-            self.current_states = {name: np.asarray(state) for name, state in states.items()}
+        self.current_actions = {'action0':_ATTACK_SCREEN_ACTION_INDEX, 'action1': enemy_location[0], 'action2':enemy_location[1]}
+        return self.current_actions
 
-        if fetch_tensors is not None:
-            # Retrieve action
-            self.current_actions, self.next_internals, self.timestep, self.fetched_tensors = self.model.act(
-                states=self.current_states,
-                internals=self.current_internals,
-                deterministic=deterministic,
-                independent=independent,
-                fetch_tensors=fetch_tensors
-            )
+        # BELOW IS THE DEFAULT CODE FOR AN AGENT
+        # self.current_internals = self.next_internals
+        #
+        # if self.unique_state:
+        #     self.current_states = dict(state=np.asarray(states))
+        # else:
+        #     self.current_states = {name: np.asarray(state) for name, state in states.items()}
+        #
+        # if fetch_tensors is not None:
+        #     # Retrieve action
+        #     self.current_actions, self.next_internals, self.timestep, self.fetched_tensors = self.model.act(
+        #         states=self.current_states,
+        #         internals=self.current_internals,
+        #         deterministic=deterministic,
+        #         independent=independent,
+        #         fetch_tensors=fetch_tensors
+        #     )
+        #
+        #     if self.unique_action:
+        #         return self.current_actions['action'], self.fetched_tensors
+        #     else:
+        #         return self.current_actions, self.fetched_tensors
+        #
+        # else:
+        #     # Retrieve action
+        #     self.current_actions, self.next_internals, self.timestep = self.model.act(
+        #         states=self.current_states,
+        #         internals=self.current_internals,
+        #         deterministic=deterministic,
+        #         independent=independent
+        #     )
+        #
+        #     if self.unique_action:
+        #         return self.current_actions['action']
+        #     else:
+        #         return self.current_actions
 
-            if self.unique_action:
-                return self.current_actions['action'], self.fetched_tensors
-            else:
-                return self.current_actions, self.fetched_tensors
-
-        else:
-            # Retrieve action
-            self.current_actions, self.next_internals, self.timestep = self.model.act(
-                states=self.current_states,
-                internals=self.current_internals,
-                deterministic=deterministic,
-                independent=independent
-            )
-
-            if self.unique_action:
-                return self.current_actions['action']
-            else:
-                return self.current_actions
+    def _get_enemy_unit_location(self, states):
+        """ Mean values of enemy unit coordinates, returned as a (x,y) tuple """
+        enemy_unit_loc_y, enemy_unit_loc_x = (states == _UNITS_ENEMY).nonzero()[1:]
+        return enemy_unit_loc_x.mean(), enemy_unit_loc_y.mean()
 
     def observe(self, terminal, reward):
         """
@@ -125,6 +138,7 @@ class AlwaysAttackScv(Agent):
             terminal (bool): boolean indicating if the episode terminated after the observation.
             reward (float): scalar reward that resulted from executing the action.
         """
+        # BELOW IS THE DEFAULT CODE FOR AN AGENT UNCHANGED
         self.current_terminal = terminal
         self.current_reward = reward
 
@@ -155,6 +169,6 @@ class AlwaysAttackScv(Agent):
             device=self.device,
             saver=self.saver,
             summarizer=self.summarizer,
-            execution=self.execution,
+            execution=None,
             batching_capacity=self.batching_capacity
         )

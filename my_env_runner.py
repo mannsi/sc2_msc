@@ -29,7 +29,7 @@ def main():
                         help='number of episodes to run')
     parser.add_argument('--step-mul', type=int, default=None,
                         help='number of game steps to take per turn')
-    parser.add_argument('--agent_type', type=str, default='random',
+    parser.add_argument('--agent_type', type=str, default='always_attack_scv',
                         help='Which of the predefined agents to run')
     parser.add_argument('--env_id', type=str, default='MarineVsScvEnv-v0',
                         help='Id of the environment to use. See envs package for possible envs')

@@ -14,11 +14,11 @@ _PLAYER_RELATIVE_SCALE = features.SCREEN_FEATURES.player_relative.scale
 
 # Available actions
 _NO_OP = actions.FUNCTIONS.no_op.id
-_NO_OP_INDEX = 0
+_NO_OP_ACTION_INDEX = 0
 _MOVE_SCREEN = actions.FUNCTIONS.Move_screen.id
-_MOVE_SCREEN_INDEX = 1
+_MOVE_SCREEN_ACTION_INDEX = 1
 _ATTACK_SCREEN = actions.FUNCTIONS.Attack_screen.id
-_ATTACK_SCREEN_INDEX = 2
+_ATTACK_SCREEN_ACTION_INDEX = 2
 
 # Not a real action but performed at start of episode
 _SELECT_ARMY = actions.FUNCTIONS.select_army.id
@@ -63,14 +63,20 @@ class MarineVsScvEnv(gym.Env):
         action_index = action_params[0]
 
         target = action_params[1:]
-        if action_index == _NO_OP_INDEX:
+
+        if action_index == _NO_OP_ACTION_INDEX:
             return [_NO_OP]
-        elif action_index == _MOVE_SCREEN_INDEX:
+        elif action_index == _MOVE_SCREEN_ACTION_INDEX:
+            if _MOVE_SCREEN not in self.available_actions:
+                return [_NO_OP]
             return [_MOVE_SCREEN, _NOT_QUEUED, target]
-        elif action_index == _ATTACK_SCREEN_INDEX:
+        elif action_index == _ATTACK_SCREEN_ACTION_INDEX:
+            if _ATTACK_SCREEN not in self.available_actions:
+                return [_NO_OP]
             return [_ATTACK_SCREEN, _NOT_QUEUED, target]
         else:
             raise ValueError(f"Got unexpected action index {action_index}")
+
 
     def reset(self):
         if self._episode > 0:
