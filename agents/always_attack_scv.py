@@ -1,11 +1,10 @@
 from tensorforce.agents import Agent
 from tensorforce.models.random_model import RandomModel
 
-import envs.marine_vs_scv
+from envs.marine_vs_scv_envs import _ATTACK_SCREEN_ACTION_INDEX
 
 _UNITS_MINE = 1
 _UNITS_ENEMY = 4
-_ATTACK_SCREEN_ACTION_INDEX = envs.marine_vs_scv._ATTACK_SCREEN_ACTION_INDEX
 
 
 def get_agent(env, saver):

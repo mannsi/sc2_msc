@@ -10,7 +10,7 @@ from absl import flags
 from tensorforce.execution import Runner
 from tensorforce.contrib.openai_gym import OpenAIGym
 
-from agents import ppo, random, always_attack_scv
+from agents import ppo, random, always_attack_scv, deep_q
 import networks.first_network
 
 
@@ -30,7 +30,7 @@ def main():
                         help='number of game steps to take per turn')
     parser.add_argument('--agent_type', type=str, default='always_attack_scv',
                         help='Which of the predefined agents to run')
-    parser.add_argument('--env_id', type=str, default='MarineVsScvEnv-v0',
+    parser.add_argument('--env_id', type=str, default='MarineVsScvAttackOnly-v0',
                         help='Id of the environment to use. See envs package for possible envs')
     parser.add_argument('--network', type=str, default='first_network',
                         help='Which network configuration to use')
@@ -57,6 +57,8 @@ def main():
 
     if args.agent_type == 'ppo':
         agent = ppo.get_agent(env, network, saver)
+    elif args.agent_type == 'deep_q':
+        agent = deep_q.get_agent(env, saver)
     elif args.agent_type == 'random':
         agent = random.get_agent(env, saver)
     elif args.agent_type == 'always_attack_scv':
