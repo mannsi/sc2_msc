@@ -31,13 +31,11 @@ class AttackOnly(BaseEnv):
         return [_ATTACK_SCREEN, _NOT_QUEUED, target]
 
     def _get_observation_space(self):
-        # TODO edit so more feature maps are available to the agent.
         screen_shape = (1, ) + self.observation_spec[0]["feature_screen"][1:]  # Convert from 17 feature maps to 1
         space = spaces.Box(low=0, high=_PLAYER_RELATIVE_SCALE, shape=screen_shape)
         return space
 
     def _extract_observation(self, obs):
-        # TODO I probably need to edit this so the agent sees f.x. unit health. Maybe I also need to edit so agent sees multiple timesteps ?
         obs = obs.observation["feature_screen"][_PLAYER_RELATIVE]
         obs = obs.reshape(self.observation_space.shape)
         return obs
