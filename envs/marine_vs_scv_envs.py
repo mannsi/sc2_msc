@@ -26,22 +26,11 @@ class AttackOnly(BaseEnv):
         return spaces.MultiDiscrete([num_available_actions] + [s for s in screen_shape])
 
     def _translate_action(self, action_params):
-        # Maps the action parameter (list of ints) to an actual agent action
-        action_index = action_params[0]
         target = action_params[1:]
 
-        if action_index == _NO_OP_ACTION_INDEX:
+        if _ATTACK_SCREEN not in self.available_actions:
             return [_NO_OP]
-        elif action_index == _MOVE_SCREEN_ACTION_INDEX:
-            if _MOVE_SCREEN not in self.available_actions:
-                return [_NO_OP]
-            return [_MOVE_SCREEN, _NOT_QUEUED, target]
-        elif action_index == _ATTACK_SCREEN_ACTION_INDEX:
-            if _ATTACK_SCREEN not in self.available_actions:
-                return [_NO_OP]
-            return [_ATTACK_SCREEN, _NOT_QUEUED, target]
-        else:
-            raise ValueError(f"Got unexpected action index {action_index}")
+        return [_ATTACK_SCREEN, _NOT_QUEUED, target]
 
     def _get_observation_space(self):
         # TODO edit so more feature maps are available to the agent.
@@ -62,8 +51,7 @@ class AttackMoveNoop(BaseEnv):
     def _get_action_space(self):
         # Returns possible actions.
         screen_shape = self.observation_spec[0]["feature_screen"][1:]
-        # num_available_actions = 3
-        num_available_actions = 1  # Start by only allow attacking.
+        num_available_actions = 3  # Attack, Move, NoOp
         return spaces.MultiDiscrete([num_available_actions] + [s for s in screen_shape])
 
     def _translate_action(self, action_params):
