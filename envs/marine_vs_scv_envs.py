@@ -19,7 +19,6 @@ _NOT_QUEUED = [0]
 
 class AttackOnly(BaseEnv):
     def _get_action_space(self):
-        # Returns possible actions.
         screen_shape = self.observation_spec[0]["feature_screen"][1:]
         num_available_actions = 1
         return spaces.MultiDiscrete([num_available_actions] + [s for s in screen_shape])
