@@ -21,8 +21,7 @@ class AttackOnly(BaseEnv):
     def _get_action_space(self):
         # Returns possible actions.
         screen_shape = self.observation_spec[0]["feature_screen"][1:]
-        # num_available_actions = 3
-        num_available_actions = 1  # Start by only allow attacking.
+        num_available_actions = 1
         return spaces.MultiDiscrete([num_available_actions] + [s for s in screen_shape])
 
     def _translate_action(self, action_params):
@@ -34,14 +33,12 @@ class AttackOnly(BaseEnv):
 
     def _get_observation_space(self):
         # TODO edit so more feature maps are available to the agent.
-        # Get observation space which is a 2D map with player id int values
         screen_shape = (1, ) + self.observation_spec[0]["feature_screen"][1:]  # Convert from 17 feature maps to 1
         space = spaces.Box(low=0, high=_PLAYER_RELATIVE_SCALE, shape=screen_shape)
         return space
 
     def _extract_observation(self, obs):
         # TODO I probably need to edit this so the agent sees f.x. unit health. Maybe I also need to edit so agent sees multiple timesteps ?
-        # Take raw observations, filter them down to just player_relative feature map and finally reshape.
         obs = obs.observation["feature_screen"][_PLAYER_RELATIVE]
         obs = obs.reshape(self.observation_space.shape)
         return obs
@@ -49,13 +46,11 @@ class AttackOnly(BaseEnv):
 
 class AttackMoveNoop(BaseEnv):
     def _get_action_space(self):
-        # Returns possible actions.
         screen_shape = self.observation_spec[0]["feature_screen"][1:]
         num_available_actions = 3  # Attack, Move, NoOp
         return spaces.MultiDiscrete([num_available_actions] + [s for s in screen_shape])
 
     def _translate_action(self, action_params):
-        # Maps the action parameter (list of ints) to an actual agent action
         action_index = action_params[0]
         target = action_params[1:]
 
@@ -73,15 +68,14 @@ class AttackMoveNoop(BaseEnv):
             raise ValueError(f"Got unexpected action index {action_index}")
 
     def _get_observation_space(self):
-        # TODO edit so more feature maps are available to the agent.
-        # Get observation space which is a 2D map with player id int values
+        # TODO edit so more feature maps are available to the agent. Probably needs to go from Box to MultiDiscrete
         screen_shape = (1, ) + self.observation_spec[0]["feature_screen"][1:]  # Convert from 17 feature maps to 1
         space = spaces.Box(low=0, high=_PLAYER_RELATIVE_SCALE, shape=screen_shape)
         return space
 
     def _extract_observation(self, obs):
         # TODO I probably need to edit this so the agent sees f.x. unit health. Maybe I also need to edit so agent sees multiple timesteps ?
-        # Take raw observations, filter them down to just player_relative feature map and finally reshape.
+        # TODO Then probably needs to go from Box to MultiDiscrete
         obs = obs.observation["feature_screen"][_PLAYER_RELATIVE]
         obs = obs.reshape(self.observation_space.shape)
         return obs

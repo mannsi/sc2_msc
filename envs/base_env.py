@@ -33,15 +33,19 @@ class BaseEnv(gym.Env):
         self._observation_space = None
 
     def _get_action_space(self):
+        # Returns possible actions as a gym.Space object
         raise NotImplementedError()
 
     def _translate_action(self, action_params):
+        # List of action ints to sc2 actions
         raise NotImplementedError()
 
     def _get_observation_space(self):
+        # Get observation space which is a 2D map with player id int values. Returns a gym.Space object
         raise NotImplementedError()
 
     def _extract_observation(self, obs):
+        # Take raw observations, filter them down to just player_relative feature map and finally reshape.
         raise NotImplementedError()
 
     def reset(self):
