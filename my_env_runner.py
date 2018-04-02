@@ -13,8 +13,8 @@ from tensorforce.contrib.openai_gym import OpenAIGym
 from agents import ppo, random, always_attack_scv, deep_q
 from networks import conv_net, lstm_net
 
-
-__description__ = 'Run a scripted example using the SC2MoveToBeacon-v1 environment.'
+import logging
+import my_log
 
 rewards = []
 
@@ -23,10 +23,10 @@ def main():
     FLAGS = flags.FLAGS
     FLAGS([__file__])
 
-    parser = argparse.ArgumentParser(description=__description__)
+    parser = argparse.ArgumentParser()
     parser.add_argument('--num_episodes', type=int, default=10,
                         help='number of episodes to run')
-    parser.add_argument('--step_mul', type=int, required=True,
+    parser.add_argument('--step_mul', type=int, default=8,
                         help='number of game steps to take per turn')
     parser.add_argument('--agent_type', type=str, default='always_attack_scv',
                         help='Which of the predefined agents to run')
@@ -49,6 +49,7 @@ def main():
     #     'seconds': 3600
     # }
     saver = None
+    my_log.init_file_logging(logging.INFO, 'output.txt')
 
     if args.network == 'conv':
         network = conv_net.get_network()
