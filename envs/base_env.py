@@ -1,9 +1,11 @@
 import logging
-import my_log
+
 import gym
 from pysc2.env import sc2_env
 from pysc2.env.environment import StepType
 from pysc2.lib import actions
+
+from utils import sc2_log
 
 _SELECT_ARMY = actions.FUNCTIONS.select_army.id
 _SELECT_ALL = [0]
@@ -48,13 +50,13 @@ class BaseEnv(gym.Env):
 
     def reset(self):
         if self._episode > 0:
-            my_log.to_file(logging.INFO,
+            sc2_log.to_file(logging.INFO,
                            f"Episode {self._episode} ended with reward {self._episode_reward} after {self._num_step} steps.")
-            my_log.to_file(logging.INFO, f"Got {self._total_reward} total reward so far, with an average reward of {float(self._total_reward) / self._episode} per episode")
+            sc2_log.to_file(logging.INFO, f"Got {self._total_reward} total reward so far, with an average reward of {float(self._total_reward) / self._episode} per episode")
         self._episode += 1
         self._num_step = 0
         self._episode_reward = 0
-        my_log.to_file(logging.INFO, f"Episode {self._episode} starting...", )
+        sc2_log.to_file(logging.INFO, f"Episode {self._episode} starting...", )
         obs = self._env.reset()[0]
         self.available_actions = obs.observation['available_actions']
         obs, reward, done, info = self._safe_step([_SELECT_ARMY, _SELECT_ALL])
@@ -74,7 +76,7 @@ class BaseEnv(gym.Env):
         try:
             obs = self._env.step([actions.FunctionCall(action[0], action[1:])])[0]
         except KeyboardInterrupt:
-            my_log.to_file(logging.INFO, "Interrupted. Quitting...")
+            sc2_log.to_file(logging.INFO, "Interrupted. Quitting...")
             return None, 0, True, {}
         # except Exception:
         #     logger.exception("An unexpected error occurred while applying action to environment.")
@@ -88,7 +90,7 @@ class BaseEnv(gym.Env):
 
     def _init_env(self):
         args = {**self.default_settings, **self._kwargs}
-        my_log.to_file(logging.DEBUG, f"Initializing SC2Env with settings: {args}")
+        sc2_log.to_file(logging.DEBUG, f"Initializing SC2Env with settings: {args}")
         self._env = sc2_env.SC2Env(**args)
 
     def save_replay(self, replay_dir):

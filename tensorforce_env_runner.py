@@ -1,20 +1,21 @@
 # noinspection PyUnresolvedReferences
-import envs
-
-# noinspection PyUnresolvedReferences
 import maps
 
+# noinspection PyUnresolvedReferences
+import envs
+
 import argparse
+import logging
+
 import numpy as np
 from absl import flags
-from tensorforce.execution import Runner
 from tensorforce.contrib.openai_gym import OpenAIGym
+from tensorforce.execution import Runner
 
-from agents import ppo, random, always_attack_scv, deep_q
+from agents.tensorforce import random, always_attack_scv, deep_q
+from agents.tensorforce import ppo
 from networks import conv_net, lstm_net
-
-import logging
-import my_log
+from utils import sc2_log
 
 rewards = []
 
@@ -49,7 +50,7 @@ def main():
     #     'seconds': 3600
     # }
     saver = None
-    my_log.init_file_logging(logging.INFO, 'output.txt')
+    sc2_log.init_file_logging(logging.INFO, 'output.txt')
 
     if args.network == 'conv':
         network = conv_net.get_network()

@@ -1,21 +1,25 @@
 import numpy as np
-
+import sys
 from pysc2.agents import base_agent
 from pysc2.lib import actions
 from pysc2.lib import features
 
-import time
 import logging
+import os
 
-import my_log
-import helper
-import my_plotting
+import absl.app as app
+import pysc2.bin.agent
+
+import initial_agents
+import utils.sc2_log as sc2_log
+import utils.sc2_plotting as sc2_plotting
+
 
 # Screen features
 _PLAYER_RELATIVE = features.SCREEN_FEATURES.player_relative.index
 _UNIT_HIT_POINTS = features.SCREEN_FEATURES.unit_hit_points.index
 
-# define contstants for actions
+# define consts for actions
 _NO_OP = actions.FUNCTIONS.no_op.id
 _MOVE_SCREEN = actions.FUNCTIONS.Move_screen.id
 _ATTACK_SCREEN = actions.FUNCTIONS.Attack_screen.id
@@ -46,7 +50,7 @@ class MyBaseAgent(base_agent.BaseAgent):
         super().__init__()
         self.obs = None
         self._steps_without_rewards = 0
-        self._step_mul = int(helper.get_command_param_val('--step_mul', remove_from_params=False, default_val=8))
+        self._step_mul = int(get_command_param_val('--step_mul', remove_from_params=False, default_val=8))
         self._steps_until_rewards_array = np.array([])
         self._marine_location_per_step = []
         self._scv_location_per_step = []
@@ -76,13 +80,13 @@ class MyBaseAgent(base_agent.BaseAgent):
 
         if GLOBAL_PARAM_MAX_EPISODES and self.episodes > GLOBAL_PARAM_MAX_EPISODES:
             self._check_if_deterministic_agent()
-            my_log.to_file(logging.INFO, f'Average reward steps:{self._steps_until_rewards_array.mean()}')
+            sc2_log.to_file(logging.INFO, f'Average reward steps:{self._steps_until_rewards_array.mean()}')
             exit()  # There is no setting to quite after x episodes so  this is a hack for it.
 
     def got_reward(self, reward):
         r_per_frame = reward / (self._steps_without_rewards * self._step_mul)
         msg = f'Reward after {self._steps_without_rewards}/{self.steps} steps. R/Frames: {r_per_frame:.2f}'
-        my_log.to_file(logging.INFO, msg)
+        sc2_log.to_file(logging.INFO, msg)
         self._steps_until_rewards_array = np.append(self._steps_until_rewards_array, self._steps_without_rewards)
         self._steps_without_rewards = 0
 
@@ -109,15 +113,15 @@ class MyBaseAgent(base_agent.BaseAgent):
         min_scv_y = min([x[1] for x in self._scv_start_location])
 
         if (max_marine_x - min_marine_x) > location_threshold:
-            my_log.to_file(logging.INFO, f'NONDETER! Marine_max_x: {max_marine_x}, Marine_min_x: {min_marine_x}')
+            sc2_log.to_file(logging.INFO, f'NONDETER! Marine_max_x: {max_marine_x}, Marine_min_x: {min_marine_x}')
         elif (max_marine_y - min_marine_y) > location_threshold:
-            my_log.to_file(logging.INFO, f'NONDETER! Marine_max_y: {max_marine_y}, Marine_min_y: {min_marine_y}')
+            sc2_log.to_file(logging.INFO, f'NONDETER! Marine_max_y: {max_marine_y}, Marine_min_y: {min_marine_y}')
         elif (max_scv_x - min_scv_x) > location_threshold:
-            my_log.to_file(logging.INFO, f'NONDETER! scv_max_x: {max_scv_x}, scv_min_x: {min_scv_x}')
+            sc2_log.to_file(logging.INFO, f'NONDETER! scv_max_x: {max_scv_x}, scv_min_x: {min_scv_x}')
         elif (max_scv_y - min_scv_y) > location_threshold:
-            my_log.to_file(logging.INFO, f'NONDETER! scv_max_y: {max_scv_y}, scv_min_y: {min_scv_y}')
+            sc2_log.to_file(logging.INFO, f'NONDETER! scv_max_y: {max_scv_y}, scv_min_y: {min_scv_y}')
         else:
-            my_log.to_file(logging.INFO, f'DETERMINISTIC AGENT!')
+            sc2_log.to_file(logging.INFO, f'DETERMINISTIC AGENT!')
 
     def _get_units_locations(self):
         own_unit_loc = self._get_own_unit_location()
@@ -166,7 +170,7 @@ class MyBaseAgent(base_agent.BaseAgent):
         print(f'Step {self.steps}, reward {self.obs.reward}, scv_alive {enemy_unit_x.any()}')
 
     def _print_available_actions(self):
-        print(helper.action_ids_to_action_names(self.obs.observation['available_actions']))
+        print(action_ids_to_action_names(self.obs.observation['available_actions']))
 
 
 class AttackAlwaysAgent(MyBaseAgent):
@@ -192,7 +196,7 @@ class AttackMoveAgent(MyBaseAgent):
 
         # For some reason the environment looses selection of my marine
         if _ATTACK_SCREEN not in self.obs.observation['available_actions']:
-            my_log.to_file(logging.INFO, f'Unable to attack. Step {self.steps}')
+            sc2_log.to_file(logging.INFO, f'Unable to attack. Step {self.steps}')
             return self._select_own_unit_action()
 
         if self.steps % 2 == 1:
@@ -267,11 +271,11 @@ class DiscoverSsmAgent(DiscoverStepsAgent):
         self.steps_between_dmg_list = []
         if GLOBAL_PARAM_MAX_EPISODES and self.episodes == GLOBAL_PARAM_MAX_EPISODES:
             np_dmg_steps_means = np.array(self.steps_between_dmg_list_of_lists).mean(axis=0)
-            my_log.to_file(logging.WARNING, f'Average steps between damage are {np_dmg_steps_means}')
+            sc2_log.to_file(logging.WARNING, f'Average steps between damage are {np_dmg_steps_means}')
 
             avg_steps_to_kill = np.array(self.steps_to_kill_scv).mean()
 
-            my_plotting.save_results_to_file(
+            sc2_plotting.save_results_to_file(
                 'ssm_move_steps.txt',
                 GLOBAL_WAIT_AFTER_ATTACK,
                 GLOBAL_MOVE_STEPS_AFTER_ATTACK,
@@ -291,3 +295,60 @@ class DiscoverSsmAgent(DiscoverStepsAgent):
             last_reward_step = self.steps_to_kill_scv[-1]
             self.steps_to_kill_scv.append(self.steps - last_reward_step)
 
+
+def action_ids_to_action_names(action_ids):
+    """
+    Takes an iterable of action ids and returns an ordered list of corresponding action names
+    :param action_ids: Iterable of action ids
+    :return: List of action names
+    """
+    action_names = []
+
+    for action_id in action_ids:
+        action_name = actions.FUNCTIONS[action_id].name
+        action_names.append(action_name)
+    return action_names
+
+
+def get_command_param_val(param_name, remove_from_params, default_val):
+    # Hacky way to have file log level as input param. Could not figure out a nicer way without breaking the pysc2 logging.
+    try:
+        my_param_index = sys.argv.index(param_name)
+    except ValueError:
+        return default_val
+    param_val = sys.argv[my_param_index + 1]
+    if remove_from_params:
+        sys.argv.pop(my_param_index + 1)
+        sys.argv.pop(my_param_index)
+    return param_val
+
+if __name__ == "__main__":
+    # Init file logging
+    try:
+        file_log_level = int(
+            get_command_param_val('--file_log_level', remove_from_params=True, default_val=logging.INFO))
+        log_file_name = get_command_param_val('--log_file_name', remove_from_params=True,
+                                                     default_val='random_file_name.txt')
+        sc2_log.init_file_logging(file_log_level=file_log_level, file_name=os.path.join('logs', log_file_name))
+    except ValueError:
+        # No file logging param given
+        pass
+
+    # Log the run conditions
+    agent = get_command_param_val('--agent', remove_from_params=False, default_val='my_agents.AttackAlwaysAgent')
+    step_mul = get_command_param_val('--step_mul', remove_from_params=False, default_val=8)
+
+    # Dumb way to get my own cmd params to my agents
+    max_episodes = int(get_command_param_val('--max_episodes', remove_from_params=True, default_val=0))
+    wait_after_attack = int(get_command_param_val('--wait_after_attack', remove_from_params=True, default_val=0))
+    move_steps_after_attack = int(
+        get_command_param_val('--move_steps_after_attack', remove_from_params=True, default_val=1))
+    initial_agents.GLOBAL_PARAM_MAX_EPISODES = max_episodes
+    initial_agents.GLOBAL_WAIT_AFTER_ATTACK = wait_after_attack
+    initial_agents.GLOBAL_MOVE_STEPS_AFTER_ATTACK = move_steps_after_attack
+
+    sc2_log.to_file(logging.WARNING,
+                    f'STARTING. Agent:{agent}, Step_mul:{step_mul}, Max_episodes:{max_episodes}, Wait_after_attack:{wait_after_attack}, Moves_after_attack:{move_steps_after_attack}')
+
+    # Run the agent
+    app.run(pysc2.bin.agent.main)

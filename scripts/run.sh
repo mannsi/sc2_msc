@@ -1,4 +1,4 @@
-source .venv/bin/activate
+source ../.venv/bin/activate
 
 for number in {1..30}
 do
