@@ -28,7 +28,7 @@ flags.DEFINE_bool("continuation", False, "Continuously training.")
 flags.DEFINE_float("learning_rate", 5e-4, "Learning rate for training.")
 flags.DEFINE_float("discount", 0.99, "Discount rate for future rewards.")
 # flags.DEFINE_integer("max_steps", int(1e5), "Total steps for training.")
-flags.DEFINE_integer("max_steps", int(1e2), "Total steps for training.")  # Episodes
+flags.DEFINE_integer("max_steps", int(1e1), "Total steps for training.")  # Episodes
 flags.DEFINE_integer("snapshot_step", int(1e3), "Step for snapshot.")
 flags.DEFINE_string("snapshot_path", "./snapshot/", "Path for snapshot.")
 flags.DEFINE_string("log_path", "./log/", "Path for log.")
