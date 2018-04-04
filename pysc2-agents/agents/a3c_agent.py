@@ -5,6 +5,7 @@ from __future__ import print_function
 import numpy as np
 import tensorflow as tf
 from pysc2.lib import actions
+from pysc2.lib import features
 
 from agents.network import build_net
 import utils as U
@@ -102,7 +103,10 @@ class A3CAgent(object):
     def step(self, obs):
         # minimap = np.array(obs.observation['minimap'], dtype=np.float32)
         # minimap = np.expand_dims(U.preprocess_minimap(minimap), axis=0)  # MANNSI: scale inputs and then flatten to 1D
-        screen = np.array(obs.observation['screen'], dtype=np.float32)
+        # screen = np.array(obs.observation['screen'], dtype=np.float32)
+        feature_index = features.SCREEN_FEATURES.player_id.index
+        feature_values = obs.observation['screen'][feature_index:feature_index+1]
+        screen = np.array(feature_values, dtype=np.float32)
         screen = np.expand_dims(U.preprocess_screen(screen), axis=0)
         # TODO: only use available actions
         # info = np.zeros([1, self.isize], dtype=np.float32)
@@ -154,7 +158,11 @@ class A3CAgent(object):
         else:
             # minimap = np.array(obs.observation['minimap'], dtype=np.float32)
             # minimap = np.expand_dims(U.preprocess_minimap(minimap), axis=0)
-            screen = np.array(obs.observation['screen'], dtype=np.float32)
+
+            feature_index = features.SCREEN_FEATURES.player_id.index
+            feature_values = obs.observation['screen'][feature_index:feature_index + 1]
+            # screen = np.array(obs.observation['screen'], dtype=np.float32)
+            screen = np.array(feature_values, dtype=np.float32)
             screen = np.expand_dims(U.preprocess_screen(screen), axis=0)
             # info = np.zeros([1, self.isize], dtype=np.float32)
             # info[0, obs.observation['available_actions']] = 1
@@ -184,8 +192,15 @@ class A3CAgent(object):
         for i, [obs, action, next_obs] in enumerate(replay_buffer):
             # minimap = np.array(obs.observation['minimap'], dtype=np.float32)
             # minimap = np.expand_dims(U.preprocess_minimap(minimap), axis=0)
-            screen = np.array(obs.observation['screen'], dtype=np.float32)
+
+            feature_index = features.SCREEN_FEATURES.player_id.index
+            feature_values = obs.observation['screen'][feature_index:feature_index + 1]
+            # screen = np.array(obs.observation['screen'], dtype=np.float32)
+            screen = np.array(feature_values, dtype=np.float32)
             screen = np.expand_dims(U.preprocess_screen(screen), axis=0)
+
+            # screen = np.array(obs.observation['screen'], dtype=np.float32)
+            # screen = np.expand_dims(U.preprocess_screen(screen), axis=0)
             # info = np.zeros([1, self.isize], dtype=np.float32)
             # info[0, obs.observation['available_actions']] = 1
 
