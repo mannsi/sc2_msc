@@ -21,7 +21,9 @@ class A3CAgent(object):
         # Minimap size, screen size and info size
         # assert msize == ssize
         self.ssize = ssize
-        self.isize = len(actions.FUNCTIONS)
+        # self.isize = len(actions.FUNCTIONS)
+        self.legal_action_ids = [actions.FUNCTIONS.Attack_screen.id]
+        self.num_legal_actions = len(self.legal_action_ids)
 
     def setup(self, sess, summary_writer):
         self.sess = sess
@@ -47,17 +49,17 @@ class A3CAgent(object):
             # self.info = tf.placeholder(tf.float32, [None, self.isize], name='info')
 
             # Build networks
-            num_actions = len(actions.FUNCTIONS)
-            net = build_net(self.screen, self.ssize, num_actions, ntype)
+            # num_actions = len(actions.FUNCTIONS)
+            net = build_net(self.screen, self.ssize, self.num_legal_actions, ntype)
             self.spatial_action, self.non_spatial_action, self.value = net
 
             # Set targets and masks
             self.valid_spatial_action = tf.placeholder(tf.float32, [None], name='valid_spatial_action')
             self.spatial_action_selected = tf.placeholder(tf.float32, [None, self.ssize ** 2],
                                                           name='spatial_action_selected')
-            self.valid_non_spatial_action = tf.placeholder(tf.float32, [None, num_actions],
+            self.valid_non_spatial_action = tf.placeholder(tf.float32, [None, self.num_legal_actions],
                                                            name='valid_non_spatial_action')
-            self.non_spatial_action_selected = tf.placeholder(tf.float32, [None, num_actions],
+            self.non_spatial_action_selected = tf.placeholder(tf.float32, [None, self.num_legal_actions],
                                                               name='non_spatial_action_selected')
             self.value_target = tf.placeholder(tf.float32, [None], name='value_target')
 
@@ -124,8 +126,11 @@ class A3CAgent(object):
         # Select an action and a spatial target
         non_spatial_action = non_spatial_action.ravel()  # MANNSI: Convert from (1,x) shape to (x,) shape.
         spatial_action = spatial_action.ravel()
-        valid_actions = obs.observation['available_actions']
-        act_id = valid_actions[np.argmax(non_spatial_action[valid_actions])]
+
+        # valid_actions = obs.observation['available_actions']
+        # act_id = valid_actions[np.argmax(non_spatial_action[valid_actions])]
+        act_id = self.legal_action_ids[np.argmax(non_spatial_action)]
+
         target = np.argmax(spatial_action)
         target = [int(target // self.ssize), int(target % self.ssize)]
 
@@ -134,7 +139,7 @@ class A3CAgent(object):
 
         # Epsilon greedy exploration
         if self.training and np.random.rand() < self.epsilon[0]:
-            act_id = np.random.choice(valid_actions)
+            act_id = np.random.choice(self.legal_action_ids)
         if self.training and np.random.rand() < self.epsilon[1]:
             dy = np.random.randint(-4, 5)
             target[0] = int(max(0, min(self.ssize - 1, target[0] + dy)))
@@ -185,8 +190,8 @@ class A3CAgent(object):
 
         valid_spatial_action = np.zeros([len(replay_buffer)], dtype=np.float32)
         spatial_action_selected = np.zeros([len(replay_buffer), self.ssize ** 2], dtype=np.float32)
-        valid_non_spatial_action = np.zeros([len(replay_buffer), len(actions.FUNCTIONS)], dtype=np.float32)
-        non_spatial_action_selected = np.zeros([len(replay_buffer), len(actions.FUNCTIONS)], dtype=np.float32)
+        valid_non_spatial_action = np.zeros([len(replay_buffer), self.num_legal_actions], dtype=np.float32)
+        non_spatial_action_selected = np.zeros([len(replay_buffer), self.num_legal_actions], dtype=np.float32)
 
         replay_buffer.reverse()
         for i, [obs, action, next_obs] in enumerate(replay_buffer):
@@ -209,14 +214,18 @@ class A3CAgent(object):
             # infos.append(info)
 
             reward = obs.reward
-            act_id = action.function
+            act_id = action.function  # MANNSI TODO:
+            act_index = self.action_index_to_array_indices([act_id])[0]
             act_args = action.arguments
 
             value_target[i] = reward + discount * value_target[i - 1]
 
-            valid_actions = obs.observation["available_actions"]
-            valid_non_spatial_action[i, valid_actions] = 1
-            non_spatial_action_selected[i, act_id] = 1
+            # valid_actions = obs.observation["available_actions"]
+            # valid_non_spatial_action[i, valid_actions] = 1
+            legal_action_indices = self.action_index_to_array_indices(self.legal_action_ids)
+            assert len(legal_action_indices) == self.num_legal_actions
+            valid_non_spatial_action[i, legal_action_indices] = 1
+            non_spatial_action_selected[i, act_index] = 1
 
             args = actions.FUNCTIONS[act_id].args
             for arg, act_arg in zip(args, act_args):
@@ -240,6 +249,7 @@ class A3CAgent(object):
         #         self.non_spatial_action_selected: non_spatial_action_selected,
         #         self.learning_rate: lr}
 
+        # MANNSI TODO: Don't understand valid_spatial_action param and valid_non_spatial_action param
         feed = {self.screen: screens,
                 self.value_target: value_target,
                 self.valid_spatial_action: valid_spatial_action,
@@ -249,6 +259,9 @@ class A3CAgent(object):
                 self.learning_rate: lr}
         _, summary = self.sess.run([self.train_op, self.summary_op], feed_dict=feed)
         self.summary_writer.add_summary(summary, counter)
+
+    def action_index_to_array_indices(self, action_indexes):
+        return [self.legal_action_ids.index(x) for x in action_indexes]
 
     def save_model(self, path, count):
         self.saver.save(self.sess, path + '/model.pkl', count)
