@@ -1,7 +1,7 @@
 #MyStuff
 logs
 results
-.idea/other.xml
+.idea
 board
 output.txt
 pysc2-agents/snapshot
