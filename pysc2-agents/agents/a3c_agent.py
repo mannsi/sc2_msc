@@ -82,6 +82,9 @@ class A3CAgent(object):
       self.summary.append(tf.summary.scalar('policy_loss', policy_loss))
       self.summary.append(tf.summary.scalar('value_loss', value_loss))
 
+      # MANNSI: Hope this is correct
+      # self.summary.append(tf.summary.scalar('reward', self.value))
+
       # TODO: policy penalty
       loss = policy_loss + value_loss
 
@@ -147,9 +150,9 @@ class A3CAgent(object):
     return actions.FunctionCall(act_id, act_args)
 
 
-  def update(self, rbs, disc, lr, cter):
+  def update(self, replay_buffer, discount, lr, counter):
     # Compute R, which is value of the last observation
-    obs = rbs[-1][-1]
+    obs = replay_buffer[-1][-1]
     if obs.last():
       R = 0
     else:
@@ -170,16 +173,16 @@ class A3CAgent(object):
     screens = []
     infos = []
 
-    value_target = np.zeros([len(rbs)], dtype=np.float32)
+    value_target = np.zeros([len(replay_buffer)], dtype=np.float32)
     value_target[-1] = R
 
-    valid_spatial_action = np.zeros([len(rbs)], dtype=np.float32)
-    spatial_action_selected = np.zeros([len(rbs), self.ssize**2], dtype=np.float32)
-    valid_non_spatial_action = np.zeros([len(rbs), len(actions.FUNCTIONS)], dtype=np.float32)
-    non_spatial_action_selected = np.zeros([len(rbs), len(actions.FUNCTIONS)], dtype=np.float32)
+    valid_spatial_action = np.zeros([len(replay_buffer)], dtype=np.float32)
+    spatial_action_selected = np.zeros([len(replay_buffer), self.ssize ** 2], dtype=np.float32)
+    valid_non_spatial_action = np.zeros([len(replay_buffer), len(actions.FUNCTIONS)], dtype=np.float32)
+    non_spatial_action_selected = np.zeros([len(replay_buffer), len(actions.FUNCTIONS)], dtype=np.float32)
 
-    rbs.reverse()
-    for i, [obs, action, next_obs] in enumerate(rbs):
+    replay_buffer.reverse()
+    for i, [obs, action, next_obs] in enumerate(replay_buffer):
       minimap = np.array(obs.observation['minimap'], dtype=np.float32)
       minimap = np.expand_dims(U.preprocess_minimap(minimap), axis=0)
       screen = np.array(obs.observation['screen'], dtype=np.float32)
@@ -195,7 +198,7 @@ class A3CAgent(object):
       act_id = action.function
       act_args = action.arguments
 
-      value_target[i] = reward + disc * value_target[i-1]
+      value_target[i] = reward + discount * value_target[i - 1]
 
       valid_actions = obs.observation["available_actions"]
       valid_non_spatial_action[i, valid_actions] = 1
@@ -223,7 +226,7 @@ class A3CAgent(object):
             self.non_spatial_action_selected: non_spatial_action_selected,
             self.learning_rate: lr}
     _, summary = self.sess.run([self.train_op, self.summary_op], feed_dict=feed)
-    self.summary_writer.add_summary(summary, cter)
+    self.summary_writer.add_summary(summary, counter)
 
 
   def save_model(self, path, count):

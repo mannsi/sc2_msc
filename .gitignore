@@ -4,6 +4,8 @@ results
 .idea/other.xml
 board
 output.txt
+pysc2-agents/snapshot
+pysc2-agents/log
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
