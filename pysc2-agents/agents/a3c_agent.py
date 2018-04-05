@@ -14,12 +14,10 @@ import utils as U
 class A3CAgent(object):
     """An agent specifically for solving the mini-game maps."""
 
-    def __init__(self, training, msize, ssize, name='A3C/A3CAgent'):
+    def __init__(self, training, ssize, name='A3C/A3CAgent'):
         self.name = name
         self.training = training
         self.summary = []
-        # Minimap size, screen size and info size
-        # assert msize == ssize
         self.ssize = ssize
         # self.isize = len(actions.FUNCTIONS)
         self.legal_action_ids = [actions.FUNCTIONS.Attack_screen.id]
@@ -102,12 +100,12 @@ class A3CAgent(object):
 
             self.saver = tf.train.Saver(max_to_keep=100)
 
-    def step(self, obs):
+    def step(self, observation):
         # minimap = np.array(obs.observation['minimap'], dtype=np.float32)
         # minimap = np.expand_dims(U.preprocess_minimap(minimap), axis=0)  # MANNSI: scale inputs and then flatten to 1D
         # screen = np.array(obs.observation['screen'], dtype=np.float32)
         feature_index = features.SCREEN_FEATURES.player_id.index
-        feature_values = obs.observation['screen'][feature_index:feature_index+1]
+        feature_values = observation['screen'][feature_index:feature_index+1]
         screen = np.array(feature_values, dtype=np.float32)
         screen = np.expand_dims(U.preprocess_screen(screen), axis=0)
         # TODO: only use available actions
@@ -118,7 +116,7 @@ class A3CAgent(object):
         #         self.screen: screen,
         #         self.info: info}
 
-        able_to_attack = actions.FUNCTIONS.Attack_screen.id in obs.observation['available_actions']
+        able_to_attack = actions.FUNCTIONS.Attack_screen.id in observation['available_actions']
         if not able_to_attack:
             actions.FunctionCall(actions.FUNCTIONS.select_army, [0])
 
@@ -139,9 +137,6 @@ class A3CAgent(object):
         target = np.argmax(spatial_action)
         target = [int(target // self.ssize), int(target % self.ssize)]
 
-        if False:
-            print(actions.FUNCTIONS[act_id].name, target)
-
         # Epsilon greedy exploration
         if self.training and np.random.rand() < self.epsilon[0]:
             act_id = np.random.choice(self.legal_action_ids)
@@ -160,9 +155,18 @@ class A3CAgent(object):
                 act_args.append([0])  # TODO: Be careful
         return actions.FunctionCall(act_id, act_args)
 
-    def update(self, replay_buffer, discount, lr, counter):
+    def update(self, replay_buffer, discount, lr, episode_counter):
+        """
+        
+        :param replay_buffer: list of tuples containing [(prev_timestep, action, next_time_step)] 
+        :param discount: Discount factor
+        :param lr: Learning rate
+        :param episode_counter: Episode counter
+        :return: 
+        """
+
         # Compute R, which is value of the last observation
-        obs = replay_buffer[-1][-1]
+        obs = replay_buffer[-1][-1]  # latest timestep
         if obs.last():
             R = 0
         else:
@@ -263,7 +267,7 @@ class A3CAgent(object):
                 self.non_spatial_action_selected: non_spatial_action_selected,
                 self.learning_rate: lr}
         _, summary = self.sess.run([self.train_op, self.summary_op], feed_dict=feed)
-        self.summary_writer.add_summary(summary, counter)
+        self.summary_writer.add_summary(summary, episode_counter)
 
     def action_index_to_array_indices(self, action_indexes):
         return [self.legal_action_ids.index(x) for x in action_indexes]
