@@ -30,44 +30,40 @@ class A3CAgent(object):
         self.sess.run(init_op)
 
     def reset(self):
-        # Epsilon schedule
-        self.epsilon = [0.05, 0.2]
+        self.epsilon = [0.05, 0.2]  # [Prob_random_action, Prop_random_location]
 
-    def build_model(self, reuse, dev, ntype):
+    def build_model(self, reuse, dev, network_type):
         with tf.variable_scope(self.name) and tf.device(dev):
             if reuse:
                 tf.get_variable_scope().reuse_variables()
                 assert tf.get_variable_scope().reuse
 
             # Set inputs of networks
-            # self.minimap = tf.placeholder(tf.float32, [None, U.minimap_channel(), self.msize, self.msize], name='minimap')
             self.screen = tf.placeholder(tf.float32, [None, U.screen_channel(), self.ssize, self.ssize], name='screen')
-            # self.info = tf.placeholder(tf.float32, [None, self.isize], name='info')
 
             # Build networks
-            # num_actions = len(actions.FUNCTIONS)
-            net = build_net(self.screen, self.ssize, self.num_legal_actions, ntype)
+            net = build_net(self.screen, self.ssize, self.num_legal_actions, network_type)
             self.spatial_action, self.non_spatial_action, self.value = net
 
             # Set targets and masks
             self.valid_spatial_action = tf.placeholder(tf.float32, [None], name='valid_spatial_action')
-            self.spatial_action_selected = tf.placeholder(tf.float32, [None, self.ssize ** 2],
-                                                          name='spatial_action_selected')
-            self.valid_non_spatial_action = tf.placeholder(tf.float32, [None, self.num_legal_actions],
-                                                           name='valid_non_spatial_action')
-            self.non_spatial_action_selected = tf.placeholder(tf.float32, [None, self.num_legal_actions],
-                                                              name='non_spatial_action_selected')
+            self.spatial_action_selected = tf.placeholder(tf.float32, [None, self.ssize ** 2], name='spatial_action_selected')
+            self.valid_non_spatial_action = tf.placeholder(tf.float32, [None, self.num_legal_actions], name='valid_non_spatial_action')
+            self.non_spatial_action_selected = tf.placeholder(tf.float32, [None, self.num_legal_actions], name='non_spatial_action_selected')
             self.value_target = tf.placeholder(tf.float32, [None], name='value_target')
 
             # Compute log probability
+            # MANNSI TODO: Understand this logic
             spatial_action_prob = tf.reduce_sum(self.spatial_action * self.spatial_action_selected, axis=1)
             spatial_action_log_prob = tf.log(tf.clip_by_value(spatial_action_prob, 1e-10, 1.))
+
             non_spatial_action_prob = tf.reduce_sum(self.non_spatial_action * self.non_spatial_action_selected, axis=1)
-            valid_non_spatial_action_prob = tf.reduce_sum(self.non_spatial_action * self.valid_non_spatial_action,
-                                                          axis=1)
+            valid_non_spatial_action_prob = tf.reduce_sum(self.non_spatial_action * self.valid_non_spatial_action, axis=1)
             valid_non_spatial_action_prob = tf.clip_by_value(valid_non_spatial_action_prob, 1e-10, 1.)
+
             non_spatial_action_prob = non_spatial_action_prob / valid_non_spatial_action_prob
             non_spatial_action_log_prob = tf.log(tf.clip_by_value(non_spatial_action_prob, 1e-10, 1.))
+
             self.summary.append(tf.summary.histogram('spatial_action_prob', spatial_action_prob))
             self.summary.append(tf.summary.histogram('non_spatial_action_prob', non_spatial_action_prob))
 
@@ -99,25 +95,14 @@ class A3CAgent(object):
             self.saver = tf.train.Saver(max_to_keep=100)
 
     def step(self, observation):
-        # minimap = np.array(obs.observation['minimap'], dtype=np.float32)
-        # minimap = np.expand_dims(U.preprocess_minimap(minimap), axis=0)  # MANNSI: scale inputs and then flatten to 1D
-        # screen = np.array(obs.observation['screen'], dtype=np.float32)
         feature_index = features.SCREEN_FEATURES.player_id.index
         feature_values = observation['screen'][feature_index:feature_index+1]
         screen = np.array(feature_values, dtype=np.float32)
         screen = np.expand_dims(U.preprocess_screen(screen), axis=0)
-        # TODO: only use available actions
-        # info = np.zeros([1, self.isize], dtype=np.float32)
-        # info[0, obs.observation['available_actions']] = 1
-
-        # feed = {self.minimap: minimap,
-        #         self.screen: screen,
-        #         self.info: info}
 
         able_to_attack = actions.FUNCTIONS.Attack_screen.id in observation['available_actions']
         if not able_to_attack:
             actions.FunctionCall(actions.FUNCTIONS.select_army, [0])
-
 
         feed = {self.screen: screen}
         non_spatial_action, spatial_action = self.sess.run(
@@ -125,11 +110,9 @@ class A3CAgent(object):
             feed_dict=feed)
 
         # Select an action and a spatial target
-        non_spatial_action = non_spatial_action.ravel()  # MANNSI: Convert from (1,x) shape to (x,) shape.
+        non_spatial_action = non_spatial_action.ravel()  # MANNSI: Convert from (1,x) shape to (x,) shape. Flatten.
         spatial_action = spatial_action.ravel()
 
-        # valid_actions = obs.observation['available_actions']
-        # act_id = valid_actions[np.argmax(non_spatial_action[valid_actions])]
         act_id = self.legal_action_ids[np.argmax(non_spatial_action)]
 
         target = np.argmax(spatial_action)
@@ -150,47 +133,33 @@ class A3CAgent(object):
             if arg.name in ('screen', 'minimap', 'screen2'):
                 act_args.append([target[1], target[0]])
             else:
-                act_args.append([0])  # TODO: Be careful
+                act_args.append([0])
         return actions.FunctionCall(act_id, act_args)
 
     def update(self, replay_buffer, discount, lr, episode_counter):
         """
-        
+        Update the agents network
         :param replay_buffer: list of tuples containing [(prev_timestep, action, next_time_step)] 
         :param discount: Discount factor
         :param lr: Learning rate
         :param episode_counter: Episode counter
         :return: 
         """
-
         # Compute R, which is value of the last observation
         obs = replay_buffer[-1][-1]  # latest timestep
         if obs.last():
             R = 0
         else:
-            # minimap = np.array(obs.observation['minimap'], dtype=np.float32)
-            # minimap = np.expand_dims(U.preprocess_minimap(minimap), axis=0)
-
             feature_index = features.SCREEN_FEATURES.player_id.index
             feature_values = obs.observation['screen'][feature_index:feature_index + 1]
-            # screen = np.array(obs.observation['screen'], dtype=np.float32)
             screen = np.array(feature_values, dtype=np.float32)
             screen = np.expand_dims(U.preprocess_screen(screen), axis=0)
-            # info = np.zeros([1, self.isize], dtype=np.float32)
-            # info[0, obs.observation['available_actions']] = 1
-
-            # feed = {self.minimap: minimap,
-            #         self.screen: screen,
-            #         self.info: info}
-
             feed = {self.screen: screen}
 
             R = self.sess.run(self.value, feed_dict=feed)[0]
 
         # Compute targets and masks
-        # minimaps = []
         screens = []
-        # infos = []
 
         value_target = np.zeros([len(replay_buffer)], dtype=np.float32)
         value_target[-1] = R
@@ -202,33 +171,20 @@ class A3CAgent(object):
 
         replay_buffer.reverse()
         for i, [obs, action, next_obs] in enumerate(replay_buffer):
-            # minimap = np.array(obs.observation['minimap'], dtype=np.float32)
-            # minimap = np.expand_dims(U.preprocess_minimap(minimap), axis=0)
-
             feature_index = features.SCREEN_FEATURES.player_id.index
             feature_values = obs.observation['screen'][feature_index:feature_index + 1]
-            # screen = np.array(obs.observation['screen'], dtype=np.float32)
             screen = np.array(feature_values, dtype=np.float32)
             screen = np.expand_dims(U.preprocess_screen(screen), axis=0)
 
-            # screen = np.array(obs.observation['screen'], dtype=np.float32)
-            # screen = np.expand_dims(U.preprocess_screen(screen), axis=0)
-            # info = np.zeros([1, self.isize], dtype=np.float32)
-            # info[0, obs.observation['available_actions']] = 1
-
-            # minimaps.append(minimap)
             screens.append(screen)
-            # infos.append(info)
 
             reward = obs.reward
-            act_id = action.function  # MANNSI TODO:
+            act_id = action.function
             act_index = self.action_index_to_array_indices([act_id])[0]
             act_args = action.arguments
 
             value_target[i] = reward + discount * value_target[i - 1]
 
-            # valid_actions = obs.observation["available_actions"]
-            # valid_non_spatial_action[i, valid_actions] = 1
             legal_action_indices = self.action_index_to_array_indices(self.legal_action_ids)
             assert len(legal_action_indices) == self.num_legal_actions
             valid_non_spatial_action[i, legal_action_indices] = 1
@@ -241,22 +197,8 @@ class A3CAgent(object):
                     valid_spatial_action[i] = 1
                     spatial_action_selected[i, ind] = 1
 
-        # minimaps = np.concatenate(minimaps, axis=0)
         screens = np.concatenate(screens, axis=0)
-        # infos = np.concatenate(infos, axis=0)
 
-        # Train
-        # feed = {self.minimap: minimaps,
-        #         self.screen: screens,
-        #         self.info: infos,
-        #         self.value_target: value_target,
-        #         self.valid_spatial_action: valid_spatial_action,
-        #         self.spatial_action_selected: spatial_action_selected,
-        #         self.valid_non_spatial_action: valid_non_spatial_action,
-        #         self.non_spatial_action_selected: non_spatial_action_selected,
-        #         self.learning_rate: lr}
-
-        # MANNSI TODO: Don't understand valid_spatial_action param and valid_non_spatial_action param
         feed = {self.screen: screens,
                 self.value_target: value_target,
                 self.valid_spatial_action: valid_spatial_action,
@@ -265,6 +207,11 @@ class A3CAgent(object):
                 self.non_spatial_action_selected: non_spatial_action_selected,
                 self.learning_rate: lr}
         _, summary = self.sess.run([self.train_op, self.summary_op], feed_dict=feed)
+
+        # MANNSI TODO: SOMEHOW ADD cumulative rewards and learning rate to summary_writer
+        reward_summary = tf.Summary(value=[tf.Summary.Value(tag='fake rewards', simple_value=episode_counter)])
+        self.summary_writer.add_summary(reward_summary, episode_counter)
+
         self.summary_writer.add_summary(summary, episode_counter)
 
     def action_index_to_array_indices(self, action_indexes):
