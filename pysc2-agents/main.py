@@ -10,7 +10,6 @@ import threading
 
 from absl import app
 from absl import flags
-from pysc2 import maps
 from pysc2.env import sc2_env
 from pysc2.lib import stopwatch
 import tensorflow as tf
@@ -37,11 +36,11 @@ flags.DEFINE_bool("trace", False, "Whether to trace the code execution.")
 flags.DEFINE_bool("save_replay", False, "Whether to save a replay at the end.")
 flags.DEFINE_integer("minimap_resolution", 84, "Resolution for minimap feature layers.")
 
-flags.DEFINE_integer("max_steps", 2, "Total steps for training.")  # Num episodes
+flags.DEFINE_integer("max_steps", 3, "Total steps for training.")  # Num episodes
 flags.DEFINE_bool("render", False, "Whether to render with pygame.")
 flags.DEFINE_integer("screen_resolution", 84, "Resolution for screen feature layers.")
 flags.DEFINE_integer("step_mul", 1, "Game steps per agent step.")
-flags.DEFINE_integer("max_agent_steps", 60,
+flags.DEFINE_integer("max_agent_steps", 100,
                      "Total agent steps.")  # Max agent steps per episode. Runs these steps or until it finishes
 flags.DEFINE_string("agent", "agents.a3c_agent.A3CAgent", "Which agent to run.")
 flags.DEFINE_string("net", "atari", "atari or fcn.")
@@ -86,13 +85,13 @@ def run_agent(agent, map_name, visualize):
                 if FLAGS.training:
                     if episode.done:
                         learning_rate = FLAGS.learning_rate * (1 - 0.9 * episode_number / NUM_EPISODES)
-                        agent.update(episode.replay_buffer, FLAGS.discount, learning_rate, episode_number)
-                        print_cumulative_score_for_episode(episode_number, obs)
+                        agent.update(list(episode.replay_buffer), FLAGS.discount, learning_rate, episode_number)
+                        episode.print_cumulative_score()
                         if episode_number % FLAGS.snapshot_step == 1:
                             agent.save_model(SNAPSHOT, episode_number)
                         break  # Exit episode
                 elif episode.done:
-                    print_cumulative_score_for_episode(episode_number, obs)
+                    episode.print_cumulative_score()
 
     elapsed_time = time.time() - start_time
     print("Took %.3f seconds" % elapsed_time)
@@ -113,6 +112,9 @@ class Episode:
         self.replay_buffer.append((prev_obs, action, current_obs))
         self.episode_step += 1
 
+    def print_cumulative_score(self):
+        print(f'Episode {self.number}, score: {self.current_obs.observation["score_cumulative"][0]}!')
+
     @property
     def current_obs(self):
         if self.episode_step > 0:
@@ -126,38 +128,22 @@ class Episode:
         return (self.episode_step >= self.max_agent_steps_per_episode) or self.current_obs.last()
 
 
-def print_cumulative_score_for_episode(episode_counter, current_obs):
-    print(f'Episode {episode_counter}, score: {current_obs.observation["score_cumulative"][0]}!')
-
-
-def _main(unused_argv):
-    """Run agents"""
+def run(unused_argv):
     stopwatch.sw.enabled = FLAGS.profile or FLAGS.trace
     stopwatch.sw.trace = FLAGS.trace
 
-    maps.get(FLAGS.map)  # Assert the map exists.
-
-    # Setup agents
+    # Setup agent
     agent_module, agent_name = FLAGS.agent.rsplit(".", 1)
     agent_cls = getattr(importlib.import_module(agent_module), agent_name)
-
     agent = agent_cls(FLAGS.training, FLAGS.screen_resolution)
     agent.build_model(False, DEVICE[0], FLAGS.net)
-
     config = tf.ConfigProto(allow_soft_placement=True)
     config.gpu_options.allow_growth = True
     sess = tf.Session(config=config)
-
     summary_writer = tf.summary.FileWriter(LOG)
-    agent.setup(sess, summary_writer)
-
-    agent.initialize()
+    agent.initialize(sess, summary_writer)
 
     run_agent(agent, FLAGS.map, FLAGS.render)
 
-    if FLAGS.profile:
-        print(stopwatch.sw)
-
-
 if __name__ == "__main__":
-    app.run(_main)
+    app.run(run)

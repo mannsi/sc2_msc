@@ -23,11 +23,9 @@ class A3CAgent(object):
         self.legal_action_ids = [actions.FUNCTIONS.Attack_screen.id]
         self.num_legal_actions = len(self.legal_action_ids)
 
-    def setup(self, sess, summary_writer):
+    def initialize(self, sess, summary_writer):
         self.sess = sess
         self.summary_writer = summary_writer
-
-    def initialize(self):
         init_op = tf.global_variables_initializer()
         self.sess.run(init_op)
 
