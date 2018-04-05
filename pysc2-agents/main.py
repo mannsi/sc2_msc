@@ -39,7 +39,7 @@ flags.DEFINE_integer("minimap_resolution", 84, "Resolution for minimap feature l
 flags.DEFINE_integer("max_steps", 3, "Total steps for training.")  # Num episodes
 flags.DEFINE_bool("render", False, "Whether to render with pygame.")
 flags.DEFINE_integer("screen_resolution", 84, "Resolution for screen feature layers.")
-flags.DEFINE_integer("step_mul", 1, "Game steps per agent step.")
+flags.DEFINE_integer("step_mul", 8, "Game steps per agent step.")
 flags.DEFINE_integer("max_agent_steps", 100,
                      "Total agent steps.")  # Max agent steps per episode. Runs these steps or until it finishes
 flags.DEFINE_string("agent", "agents.a3c_agent.A3CAgent", "Which agent to run.")

@@ -146,12 +146,12 @@ class A3CAgent(object):
         :return: 
         """
         # Compute R, which is value of the last observation
-        obs = replay_buffer[-1][-1]  # latest timestep
-        if obs.last():
+        last_obs = replay_buffer[-1][-1]  # latest obs
+        if last_obs.last():
             R = 0
         else:
             feature_index = features.SCREEN_FEATURES.player_id.index
-            feature_values = obs.observation['screen'][feature_index:feature_index + 1]
+            feature_values = last_obs.observation['screen'][feature_index:feature_index + 1]
             screen = np.array(feature_values, dtype=np.float32)
             screen = np.expand_dims(U.preprocess_screen(screen), axis=0)
             feed = {self.screen: screen}
@@ -208,9 +208,12 @@ class A3CAgent(object):
                 self.learning_rate: lr}
         _, summary = self.sess.run([self.train_op, self.summary_op], feed_dict=feed)
 
-        # MANNSI TODO: SOMEHOW ADD cumulative rewards and learning rate to summary_writer
-        reward_summary = tf.Summary(value=[tf.Summary.Value(tag='fake rewards', simple_value=episode_counter)])
+        total_episode_rewards = last_obs.observation["score_cumulative"][0]
+        reward_summary = tf.Summary(value=[tf.Summary.Value(tag='Episode rewards', simple_value=total_episode_rewards)])
         self.summary_writer.add_summary(reward_summary, episode_counter)
+
+        lr_summary = tf.Summary(value=[tf.Summary.Value(tag='Learning rate', simple_value=lr)])
+        self.summary_writer.add_summary(lr_summary, episode_counter)
 
         self.summary_writer.add_summary(summary, episode_counter)
 
