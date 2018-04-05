@@ -56,7 +56,7 @@ else:
 
 LOG = FLAGS.log_path + FLAGS.map + '/' + FLAGS.net
 SNAPSHOT = FLAGS.snapshot_path + FLAGS.map + '/' + FLAGS.net
-MAX_NUM_EPISODES = FLAGS.max_steps
+NUM_EPISODES = FLAGS.max_steps
 if not os.path.exists(LOG):
     os.makedirs(LOG)
 if not os.path.exists(SNAPSHOT):
@@ -64,6 +64,8 @@ if not os.path.exists(SNAPSHOT):
 
 
 def run_agent(agent, map_name, visualize):
+    start_time = time.time()
+
     with sc2_env.SC2Env(
             map_name=map_name,
             agent_race=FLAGS.agent_race,
@@ -73,51 +75,59 @@ def run_agent(agent, map_name, visualize):
             screen_size_px=(FLAGS.screen_resolution, FLAGS.screen_resolution),
             minimap_size_px=(FLAGS.minimap_resolution, FLAGS.minimap_resolution),
             visualize=visualize) as env:
-        # Only for a single player!
-        replay_buffer = []
-        for prev_timestep, action, latest_timestep, episode_counter, is_done in run_episodes(agent, env, MAX_NUM_EPISODES, MAX_AGENT_STEPS_PER_EPISODE):
-            if FLAGS.training:
-                replay_buffer.append((prev_timestep, action, latest_timestep))
-                if is_done:
-                    # Learning rate schedule
-                    learning_rate = FLAGS.learning_rate * (1 - 0.9 * episode_counter / MAX_NUM_EPISODES)
-                    agent.update(replay_buffer, FLAGS.discount, learning_rate, episode_counter)
-                    replay_buffer = []
+        for episode_number in range(1, NUM_EPISODES+1):
+            initial_obs = env.reset()[0]  # Initial obs from env
+            episode = Episode(episode_number, MAX_AGENT_STEPS_PER_EPISODE, initial_obs)
+            agent.reset()
+            while True:
+                action = agent.step(episode.current_obs.observation)
+                obs = env.step([action])[0]
+                episode.step(action, obs)
+                if FLAGS.training:
+                    if episode.done:
+                        learning_rate = FLAGS.learning_rate * (1 - 0.9 * episode_number / NUM_EPISODES)
+                        agent.update(episode.replay_buffer, FLAGS.discount, learning_rate, episode_number)
+                        print_cumulative_score_for_episode(episode_number, obs)
+                        if episode_number % FLAGS.snapshot_step == 1:
+                            agent.save_model(SNAPSHOT, episode_number)
+                        break  # Exit episode
+                elif episode.done:
+                    print_cumulative_score_for_episode(episode_number, obs)
 
-                    obs = latest_timestep.observation
-                    score = obs["score_cumulative"][0]
-                    print(f'Your score after episode {episode_counter} is {score}!')
-
-                    if episode_counter % FLAGS.snapshot_step == 1:
-                        agent.save_model(SNAPSHOT, episode_counter)
-            elif is_done:
-                obs = latest_timestep.observation
-                score = obs["score_cumulative"][0]
-                print('Your score is ' + str(score) + '!')
-        if FLAGS.save_replay:
-            env.save_replay(agent.name)
-
-
-def run_episodes(agent, env, num_episodes, max_steps_per_episode=0):
-    """Agent and env interact via observations and actions"""
-    start_time = time.time()
-    for i in range(num_episodes):
-        num_steps = 0
-        timestep = env.reset()[0]
-        agent.reset()
-        episode_counter = i + 1
-        while True:
-            # This runs a single episode or until max frames are reached
-            num_steps += 1
-            prev_timestep = timestep
-            action = agent.step(timestep.observation)
-            timestep = env.step([action])[0]
-            is_done = (num_steps >= max_steps_per_episode) or timestep.last()
-            yield prev_timestep, action, timestep, episode_counter, is_done
-            if is_done:
-                break
     elapsed_time = time.time() - start_time
     print("Took %.3f seconds" % elapsed_time)
+
+
+class Episode:
+    def __init__(self, episode_number, max_agent_steps_per_episode, initial_obs):
+        self.number = episode_number
+        self.max_agent_steps_per_episode = max_agent_steps_per_episode
+        self.initial_obs = initial_obs
+
+        self.episode_step = 0
+        self.is_done = False
+        self.replay_buffer = []
+
+    def step(self, action, current_obs):
+        prev_obs = self.current_obs  # Get current obs before this step
+        self.replay_buffer.append((prev_obs, action, current_obs))
+        self.episode_step += 1
+
+    @property
+    def current_obs(self):
+        if self.episode_step > 0:
+            current_obs = self.replay_buffer[-1][-1]  # current_obs of last replay buffer item
+        else:
+            current_obs = self.initial_obs
+        return current_obs
+
+    @property
+    def done(self):
+        return (self.episode_step >= self.max_agent_steps_per_episode) or self.current_obs.last()
+
+
+def print_cumulative_score_for_episode(episode_counter, current_obs):
+    print(f'Episode {episode_counter}, score: {current_obs.observation["score_cumulative"][0]}!')
 
 
 def _main(unused_argv):
