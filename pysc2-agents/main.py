@@ -75,12 +75,10 @@ def run_agent(agent, map_name, visualize):
             visualize=visualize) as env:
         # Only for a single player!
         replay_buffer = []
-        episode_counter = 0
-        for recorder, is_done in run_loop(agent, env, MAX_AGENT_STEPS_PER_EPISODE):  # This runs run_loop only once
+        for recorder, episode_counter, is_done in run_episodes(agent, env, MAX_NUM_EPISODES, MAX_AGENT_STEPS_PER_EPISODE):
             if FLAGS.training:
                 replay_buffer.append(recorder)
                 if is_done:
-                    episode_counter += 1
                     # Learning rate schedule
                     learning_rate = FLAGS.learning_rate * (1 - 0.9 * episode_counter / MAX_NUM_EPISODES)
                     agent.update(replay_buffer, FLAGS.discount, learning_rate, episode_counter)
@@ -92,8 +90,6 @@ def run_agent(agent, map_name, visualize):
 
                     if episode_counter % FLAGS.snapshot_step == 1:
                         agent.save_model(SNAPSHOT, episode_counter)
-                    if episode_counter >= MAX_NUM_EPISODES:
-                        break  # This triggers finally cause in run loop function
             elif is_done:
                 obs = recorder[-1].observation
                 score = obs["score_cumulative"][0]
@@ -102,21 +98,23 @@ def run_agent(agent, map_name, visualize):
             env.save_replay(agent.name)
 
 
-def run_loop(agent, env, max_frames=0):
-    """A run loop to have agent and an environment interact."""
+def run_episodes(agent, env, num_episodes, max_steps_per_episode=0):
+    """Agent and env interact via observations and actions"""
     start_time = time.time()
     try:
-        while True:
-            num_frames = 0
+        for i in range(num_episodes):
+            num_steps = 0
             timestep = env.reset()[0]
             agent.reset()
+            episode_counter = i + 1
             while True:
-                num_frames += 1
+                # This runs a single episode or until max frames are reached
+                num_steps += 1
                 prev_timestep = timestep
                 action = agent.step(timestep.observation)
                 timestep = env.step([action])[0]
-                is_done = (num_frames >= max_frames) or timestep.last()
-                yield [prev_timestep, action, timestep], is_done
+                is_done = (num_steps >= max_steps_per_episode) or timestep.last()
+                yield [prev_timestep, action, timestep], episode_counter, is_done
                 if is_done:
                     break
     except KeyboardInterrupt:
