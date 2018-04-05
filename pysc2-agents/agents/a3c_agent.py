@@ -118,6 +118,11 @@ class A3CAgent(object):
         #         self.screen: screen,
         #         self.info: info}
 
+        able_to_attack = actions.FUNCTIONS.Attack_screen.id in obs.observation['available_actions']
+        if not able_to_attack:
+            actions.FunctionCall(actions.FUNCTIONS.select_army, [0])
+
+
         feed = {self.screen: screen}
         non_spatial_action, spatial_action = self.sess.run(
             [self.non_spatial_action, self.spatial_action],
