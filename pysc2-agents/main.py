@@ -75,23 +75,23 @@ def run_agent(agent, map_name, visualize):
             visualize=visualize) as env:
         # Only for a single player!
         replay_buffer = []
-        for recorder, episode_counter, is_done in run_episodes(agent, env, MAX_NUM_EPISODES, MAX_AGENT_STEPS_PER_EPISODE):
+        for prev_timestep, action, latest_timestep, episode_counter, is_done in run_episodes(agent, env, MAX_NUM_EPISODES, MAX_AGENT_STEPS_PER_EPISODE):
             if FLAGS.training:
-                replay_buffer.append(recorder)
+                replay_buffer.append((prev_timestep, action, latest_timestep))
                 if is_done:
                     # Learning rate schedule
                     learning_rate = FLAGS.learning_rate * (1 - 0.9 * episode_counter / MAX_NUM_EPISODES)
                     agent.update(replay_buffer, FLAGS.discount, learning_rate, episode_counter)
                     replay_buffer = []
 
-                    obs = recorder[-1].observation
+                    obs = latest_timestep.observation
                     score = obs["score_cumulative"][0]
-                    print('Your score is ' + str(score) + '!')
+                    print(f'Your score after episode {episode_counter} is {score}!')
 
                     if episode_counter % FLAGS.snapshot_step == 1:
                         agent.save_model(SNAPSHOT, episode_counter)
             elif is_done:
-                obs = recorder[-1].observation
+                obs = latest_timestep.observation
                 score = obs["score_cumulative"][0]
                 print('Your score is ' + str(score) + '!')
         if FLAGS.save_replay:
@@ -101,27 +101,23 @@ def run_agent(agent, map_name, visualize):
 def run_episodes(agent, env, num_episodes, max_steps_per_episode=0):
     """Agent and env interact via observations and actions"""
     start_time = time.time()
-    try:
-        for i in range(num_episodes):
-            num_steps = 0
-            timestep = env.reset()[0]
-            agent.reset()
-            episode_counter = i + 1
-            while True:
-                # This runs a single episode or until max frames are reached
-                num_steps += 1
-                prev_timestep = timestep
-                action = agent.step(timestep.observation)
-                timestep = env.step([action])[0]
-                is_done = (num_steps >= max_steps_per_episode) or timestep.last()
-                yield [prev_timestep, action, timestep], episode_counter, is_done
-                if is_done:
-                    break
-    except KeyboardInterrupt:
-        pass
-    finally:
-        elapsed_time = time.time() - start_time
-        print("Took %.3f seconds" % elapsed_time)
+    for i in range(num_episodes):
+        num_steps = 0
+        timestep = env.reset()[0]
+        agent.reset()
+        episode_counter = i + 1
+        while True:
+            # This runs a single episode or until max frames are reached
+            num_steps += 1
+            prev_timestep = timestep
+            action = agent.step(timestep.observation)
+            timestep = env.step([action])[0]
+            is_done = (num_steps >= max_steps_per_episode) or timestep.last()
+            yield prev_timestep, action, timestep, episode_counter, is_done
+            if is_done:
+                break
+    elapsed_time = time.time() - start_time
+    print("Took %.3f seconds" % elapsed_time)
 
 
 def _main(unused_argv):
