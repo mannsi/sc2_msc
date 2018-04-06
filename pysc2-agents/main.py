@@ -36,7 +36,7 @@ flags.DEFINE_bool("trace", False, "Whether to trace the code execution.")
 flags.DEFINE_bool("save_replay", False, "Whether to save a replay at the end.")
 flags.DEFINE_integer("minimap_resolution", 84, "Resolution for minimap feature layers.")
 
-flags.DEFINE_integer("max_steps", 3, "Total steps for training.")  # Num episodes
+flags.DEFINE_integer("max_steps", int(1e5), "Total steps for training.")  # Num episodes
 flags.DEFINE_bool("render", False, "Whether to render with pygame.")
 flags.DEFINE_integer("screen_resolution", 84, "Resolution for screen feature layers.")
 flags.DEFINE_integer("step_mul", 8, "Game steps per agent step.")
@@ -103,21 +103,22 @@ class Episode:
         self.max_agent_steps_per_episode = max_agent_steps_per_episode
         self.initial_obs = initial_obs
 
-        self.episode_step = 0
+        self.steps = 0
         self.is_done = False
         self.replay_buffer = []
 
     def step(self, action, current_obs):
         prev_obs = self.current_obs  # Get current obs before this step
         self.replay_buffer.append((prev_obs, action, current_obs))
-        self.episode_step += 1
+        self.steps += 1
 
     def print_cumulative_score(self):
-        print(f'Episode {self.number}, score: {self.current_obs.observation["score_cumulative"][0]}!')
+        print(
+            f'Episode {self.number}, score: {self.current_obs.observation["score_cumulative"][0]}, steps: {self.steps}')
 
     @property
     def current_obs(self):
-        if self.episode_step > 0:
+        if self.steps > 0:
             current_obs = self.replay_buffer[-1][-1]  # current_obs of last replay buffer item
         else:
             current_obs = self.initial_obs
@@ -125,7 +126,7 @@ class Episode:
 
     @property
     def done(self):
-        return (self.episode_step >= self.max_agent_steps_per_episode) or self.current_obs.last()
+        return (self.steps >= self.max_agent_steps_per_episode) or self.current_obs.last()
 
 
 def run(unused_argv):

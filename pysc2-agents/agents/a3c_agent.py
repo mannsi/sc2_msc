@@ -39,26 +39,26 @@ class A3CAgent(object):
                 assert tf.get_variable_scope().reuse
 
             # Set inputs of networks
-            self.screen = tf.placeholder(tf.float32, [None, U.screen_channel(), self.ssize, self.ssize], name='screen')
+            self.screen_placeholder = tf.placeholder(tf.float32, [None, U.screen_channel(), self.ssize, self.ssize], name='screen')
 
             # Build networks
-            net = build_net(self.screen, self.ssize, self.num_legal_actions, network_type)
-            self.spatial_action, self.non_spatial_action, self.value = net
+            net = build_net(self.screen_placeholder, self.ssize, self.num_legal_actions, network_type)
+            self.spatial_action_tensor, self.non_spatial_action_tensor, self.value_tensor = net
 
             # Set targets and masks
-            self.valid_spatial_action = tf.placeholder(tf.float32, [None], name='valid_spatial_action')
-            self.spatial_action_selected = tf.placeholder(tf.float32, [None, self.ssize ** 2], name='spatial_action_selected')
-            self.valid_non_spatial_action = tf.placeholder(tf.float32, [None, self.num_legal_actions], name='valid_non_spatial_action')
-            self.non_spatial_action_selected = tf.placeholder(tf.float32, [None, self.num_legal_actions], name='non_spatial_action_selected')
-            self.value_target = tf.placeholder(tf.float32, [None], name='value_target')
+            self.valid_spatial_action_placeholder = tf.placeholder(tf.float32, [None], name='valid_spatial_action')
+            self.spatial_action_selected_placeholder = tf.placeholder(tf.float32, [None, self.ssize ** 2], name='spatial_action_selected')
+            self.valid_non_spatial_action_placeholder = tf.placeholder(tf.float32, [None, self.num_legal_actions], name='valid_non_spatial_action')
+            self.non_spatial_action_selected_placeholder = tf.placeholder(tf.float32, [None, self.num_legal_actions], name='non_spatial_action_selected')
+            self.value_target_placeholder = tf.placeholder(tf.float32, [None], name='value_target')
 
             # Compute log probability
             # MANNSI TODO: Understand this logic
-            spatial_action_prob = tf.reduce_sum(self.spatial_action * self.spatial_action_selected, axis=1)
+            spatial_action_prob = tf.reduce_sum(self.spatial_action_tensor * self.spatial_action_selected_placeholder, axis=1)
             spatial_action_log_prob = tf.log(tf.clip_by_value(spatial_action_prob, 1e-10, 1.))
 
-            non_spatial_action_prob = tf.reduce_sum(self.non_spatial_action * self.non_spatial_action_selected, axis=1)
-            valid_non_spatial_action_prob = tf.reduce_sum(self.non_spatial_action * self.valid_non_spatial_action, axis=1)
+            non_spatial_action_prob = tf.reduce_sum(self.non_spatial_action_tensor * self.non_spatial_action_selected_placeholder, axis=1)
+            valid_non_spatial_action_prob = tf.reduce_sum(self.non_spatial_action_tensor * self.valid_non_spatial_action_placeholder, axis=1)
             valid_non_spatial_action_prob = tf.clip_by_value(valid_non_spatial_action_prob, 1e-10, 1.)
 
             non_spatial_action_prob = non_spatial_action_prob / valid_non_spatial_action_prob
@@ -69,10 +69,10 @@ class A3CAgent(object):
 
             # Compute losses, more details in https://arxiv.org/abs/1602.01783
             # Policy loss and value loss
-            action_log_prob = self.valid_spatial_action * spatial_action_log_prob + non_spatial_action_log_prob
-            advantage = tf.stop_gradient(self.value_target - self.value)
+            action_log_prob = self.valid_spatial_action_placeholder * spatial_action_log_prob + non_spatial_action_log_prob
+            advantage = tf.stop_gradient(self.value_target_placeholder - self.value_tensor)
             policy_loss = - tf.reduce_mean(action_log_prob * advantage)
-            value_loss = - tf.reduce_mean(self.value * advantage)
+            value_loss = - tf.reduce_mean(self.value_tensor * advantage)
             self.summary.append(tf.summary.scalar('policy_loss', policy_loss))
             self.summary.append(tf.summary.scalar('value_loss', value_loss))
 
@@ -95,26 +95,19 @@ class A3CAgent(object):
             self.saver = tf.train.Saver(max_to_keep=100)
 
     def step(self, observation):
-        feature_index = features.SCREEN_FEATURES.player_id.index
-        feature_values = observation['screen'][feature_index:feature_index+1]
-        screen = np.array(feature_values, dtype=np.float32)
-        screen = np.expand_dims(U.preprocess_screen(screen), axis=0)
-
         able_to_attack = actions.FUNCTIONS.Attack_screen.id in observation['available_actions']
         if not able_to_attack:
-            actions.FunctionCall(actions.FUNCTIONS.select_army, [0])
+            return actions.FunctionCall(actions.FUNCTIONS.select_army, [0])
 
-        feed = {self.screen: screen}
-        non_spatial_action, spatial_action = self.sess.run(
-            [self.non_spatial_action, self.spatial_action],
-            feed_dict=feed)
+        screen_features = self.get_screen_features(observation)
+        feed = {self.screen_placeholder: screen_features}
+        non_spatial_action, spatial_action = self.sess.run([self.non_spatial_action_tensor, self.spatial_action_tensor], feed_dict=feed)
 
         # Select an action and a spatial target
         non_spatial_action = non_spatial_action.ravel()  # MANNSI: Convert from (1,x) shape to (x,) shape. Flatten.
         spatial_action = spatial_action.ravel()
 
         act_id = self.legal_action_ids[np.argmax(non_spatial_action)]
-
         target = np.argmax(spatial_action)
         target = [int(target // self.ssize), int(target % self.ssize)]
 
@@ -127,7 +120,7 @@ class A3CAgent(object):
             dx = np.random.randint(-4, 5)
             target[1] = int(max(0, min(self.ssize - 1, target[1] + dx)))
 
-        # Set act_id and act_args
+        # Wrap up in an action function call
         act_args = []
         for arg in actions.FUNCTIONS[act_id].args:
             if arg.name in ('screen', 'minimap', 'screen2'):
@@ -150,17 +143,14 @@ class A3CAgent(object):
         if last_obs.last():
             R = 0
         else:
-            feature_index = features.SCREEN_FEATURES.player_id.index
-            feature_values = last_obs.observation['screen'][feature_index:feature_index + 1]
-            screen = np.array(feature_values, dtype=np.float32)
-            screen = np.expand_dims(U.preprocess_screen(screen), axis=0)
-            feed = {self.screen: screen}
-
-            R = self.sess.run(self.value, feed_dict=feed)[0]
+            screen_features = self.get_screen_features(last_obs.observation)
+            feed = {self.screen_placeholder: screen_features}
+            R = self.sess.run(self.value_tensor, feed_dict=feed)[0]
 
         # Compute targets and masks
         screens = []
 
+        # MANNSI TODO: Why are we putting R in the last value_target cell?
         value_target = np.zeros([len(replay_buffer)], dtype=np.float32)
         value_target[-1] = R
 
@@ -171,19 +161,17 @@ class A3CAgent(object):
 
         replay_buffer.reverse()
         for i, [obs, action, next_obs] in enumerate(replay_buffer):
-            feature_index = features.SCREEN_FEATURES.player_id.index
-            feature_values = obs.observation['screen'][feature_index:feature_index + 1]
-            screen = np.array(feature_values, dtype=np.float32)
-            screen = np.expand_dims(U.preprocess_screen(screen), axis=0)
+            screen_features = self.get_screen_features(obs.observation)
 
-            screens.append(screen)
+            screens.append(screen_features)
 
             reward = obs.reward
             act_id = action.function
             act_index = self.action_index_to_array_indices([act_id])[0]
             act_args = action.arguments
 
-            value_target[i] = reward + discount * value_target[i - 1]
+            # MANNSI TODO: In the first run we assign value_target[0] based on the last value_target value ...
+            value_target[i] = reward + discount * value_target[i - 1]  # These are actual discounted rewards
 
             legal_action_indices = self.action_index_to_array_indices(self.legal_action_ids)
             assert len(legal_action_indices) == self.num_legal_actions
@@ -199,12 +187,12 @@ class A3CAgent(object):
 
         screens = np.concatenate(screens, axis=0)
 
-        feed = {self.screen: screens,
-                self.value_target: value_target,
-                self.valid_spatial_action: valid_spatial_action,
-                self.spatial_action_selected: spatial_action_selected,
-                self.valid_non_spatial_action: valid_non_spatial_action,
-                self.non_spatial_action_selected: non_spatial_action_selected,
+        feed = {self.screen_placeholder: screens,
+                self.value_target_placeholder: value_target,
+                self.valid_spatial_action_placeholder: valid_spatial_action,
+                self.spatial_action_selected_placeholder: spatial_action_selected,
+                self.valid_non_spatial_action_placeholder: valid_non_spatial_action,
+                self.non_spatial_action_selected_placeholder: non_spatial_action_selected,
                 self.learning_rate: lr}
         _, summary = self.sess.run([self.train_op, self.summary_op], feed_dict=feed)
 
@@ -216,6 +204,14 @@ class A3CAgent(object):
         self.summary_writer.add_summary(lr_summary, episode_counter)
 
         self.summary_writer.add_summary(summary, episode_counter)
+
+    @staticmethod
+    def get_screen_features(observation):
+        feature_index = features.SCREEN_FEATURES.player_id.index
+        feature_values = observation['screen'][feature_index:feature_index + 1]
+        screen = np.array(feature_values, dtype=np.float32)
+        screen = np.expand_dims(U.preprocess_screen(screen), axis=0)
+        return screen
 
     def action_index_to_array_indices(self, action_indexes):
         return [self.legal_action_ids.index(x) for x in action_indexes]
