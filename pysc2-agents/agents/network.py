@@ -10,23 +10,13 @@ def build_net(screen, ssize, num_action, ntype):
     if ntype == 'atari':
         return build_atari(screen, ssize, num_action)
     elif ntype == 'fcn':
-        return build_fcn(screen, ssize, num_action)
+        return build_fcn(screen, num_action)
     else:
         raise 'FLAGS.net must be atari or fcn'
 
 
 def build_atari(screen, ssize, num_action):
     # Extract features
-    # mconv1 = layers.conv2d(tf.transpose(minimap, [0, 2, 3, 1]),
-    #                        num_outputs=16,
-    #                        kernel_size=8,
-    #                        stride=4,
-    #                        scope='mconv1')
-    # mconv2 = layers.conv2d(mconv1,
-    #                        num_outputs=32,
-    #                        kernel_size=4,
-    #                        stride=2,
-    #                        scope='mconv2')
     sconv1 = layers.conv2d(tf.transpose(screen, [0, 2, 3, 1]),
                            num_outputs=16,
                            kernel_size=8,
@@ -37,10 +27,6 @@ def build_atari(screen, ssize, num_action):
                            kernel_size=4,
                            stride=2,
                            scope='sconv2')
-    # info_fc = layers.fully_connected(layers.flatten(info),
-    #                                  num_outputs=256,
-    #                                  activation_fn=tf.tanh,
-    #                                  scope='info_fc')
 
     # Compute spatial actions, non spatial actions and value
     feat_fc = tf.concat([layers.flatten(sconv2)], axis=1)
@@ -58,7 +44,7 @@ def build_atari(screen, ssize, num_action):
                                               activation_fn=tf.nn.softmax,
                                               scope='spatial_action_y')
     spatial_action_x = tf.reshape(spatial_action_x, [-1, 1, ssize])
-    spatial_action_x = tf.tile(spatial_action_x, [1, ssize, 1])  # MANNSI TODO: What does this do?
+    spatial_action_x = tf.tile(spatial_action_x, [1, ssize, 1])
     spatial_action_y = tf.reshape(spatial_action_y, [-1, ssize, 1])
     spatial_action_y = tf.tile(spatial_action_y, [1, 1, ssize])
     spatial_action = layers.flatten(spatial_action_x * spatial_action_y)
@@ -75,18 +61,8 @@ def build_atari(screen, ssize, num_action):
     return spatial_action, non_spatial_action, value
 
 
-def build_fcn(screen, info, msize, num_action):
+def build_fcn(screen, num_action):
     # Extract features
-    # mconv1 = layers.conv2d(tf.transpose(minimap, [0, 2, 3, 1]),
-    #                        num_outputs=16,
-    #                        kernel_size=5,
-    #                        stride=1,
-    #                        scope='mconv1')
-    # mconv2 = layers.conv2d(mconv1,
-    #                        num_outputs=32,
-    #                        kernel_size=3,
-    #                        stride=1,
-    #                        scope='mconv2')
     sconv1 = layers.conv2d(tf.transpose(screen, [0, 2, 3, 1]),
                            num_outputs=16,
                            kernel_size=5,
@@ -97,10 +73,6 @@ def build_fcn(screen, info, msize, num_action):
                            kernel_size=3,
                            stride=1,
                            scope='sconv2')
-    # info_fc = layers.fully_connected(layers.flatten(info),
-    #                                  num_outputs=256,
-    #                                  activation_fn=tf.tanh,
-    #                                  scope='info_fc')
 
     # Compute spatial actions
     feat_conv = tf.concat([sconv2], axis=3)
