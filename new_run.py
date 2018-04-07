@@ -48,14 +48,7 @@ flags.DEFINE_string("agent", "agents.a3c_agent.A3CAgent", "Which agent to run.")
 flags.DEFINE_string("net", "atari", "atari or fcn.")
 
 FLAGS(sys.argv)
-# if FLAGS.training:
-#     MAX_AGENT_STEPS_PER_EPISODE = FLAGS.max_agent_steps
-#     DEVICE = ['/gpu:' + dev for dev in FLAGS.device.split(',')]
-# else:
-#     MAX_AGENT_STEPS_PER_EPISODE = 1e5
-#     DEVICE = ['/cpu:0']
-
-LOG = FLAGS.log_path + FLAGS.map + '/' + FLAGS.net
+LOG = FLAGS.log_path + FLAGS.map + '/table'
 SNAPSHOT = FLAGS.snapshot_path + FLAGS.map + '/' + FLAGS.net
 NUM_EPISODES = FLAGS.max_steps
 if not os.path.exists(LOG):
@@ -66,6 +59,8 @@ if not os.path.exists(SNAPSHOT):
 
 def run_agent(agent, map_name, visualize):
     start_time = time.time()
+
+    tb_writer = tf.summary.FileWriter(LOG)
 
     with sc2_env.SC2Env(
             map_name=map_name,
@@ -78,22 +73,26 @@ def run_agent(agent, map_name, visualize):
             initial_obs = env.reset()[0]  # Initial obs from env
             state = agent.sc2obs_to_table_state(initial_obs)
             while True:
-                prev_state = state
                 action = agent.step(state)
                 obs = env.step([action])[0]
-                state =
-                episode.step(action, obs)
-                if episode.done:
-                    learning_rate = FLAGS.learning_rate * (1 - 0.9 * episode_number / NUM_EPISODES)
-                    agent.update(list(episode.replay_buffer), FLAGS.discount, learning_rate, episode_number)
-                    episode.print_cumulative_score()
-                    if episode_number % FLAGS.snapshot_step == 1:
-                        agent.save_model(SNAPSHOT, episode_number)
+                prev_state = state
+                state = agent.sc2obs_to_table_state(obs)
+
+                replay_buffer.append((prev_state, action, obs.reward, state))
+
+                if obs.done:
+                    agent.update(replay_buffer)
+                    log_episode(tb_writer, obs, episode_number)
                     break  # Exit episode
 
     elapsed_time = time.time() - start_time
     print("Took %.3f seconds" % elapsed_time)
 
+
+def log_episode(tb_writer, last_obs, episode_number):
+    total_episode_rewards = last_obs.observation["score_cumulative"][0]
+    reward_summary = tf.Summary(value=[tf.Summary.Value(tag='Episode rewards', simple_value=total_episode_rewards)])
+    tb_writer.add_summary(reward_summary, episode_number)
 
 
 def run(unused_argv):
@@ -101,7 +100,7 @@ def run(unused_argv):
     stopwatch.sw.trace = FLAGS.trace
 
     # Setup agent
-    agent = TableAgent(x_size=FLAGS.screen_resolution, y_size=FLAGS.screen_resolution, actions=)
+    agent = TableAgent(x_size=FLAGS.screen_resolution, y_size=FLAGS.screen_resolution, step_size=0.1, discount=0.99)
 
     run_agent(agent, FLAGS.map, FLAGS.render)
 

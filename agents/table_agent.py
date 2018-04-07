@@ -1,6 +1,5 @@
 import numpy as np
-from pysc2.lib import features
-
+from pysc2.lib import features, actions
 
 # Screen features
 _PLAYER_RELATIVE = features.SCREEN_FEATURES.player_relative.index
@@ -9,15 +8,18 @@ _PLAYER_RELATIVE = features.SCREEN_FEATURES.player_relative.index
 _UNITS_MINE = 1
 _UNITS_ENEMY = 4
 
+_NOT_QUEUED = [0]
+
 _ACTION_NO_OP = 0
 _ACTION_ATTACK_ENEMY = 1
 _ACTION_MOVE_TO_ENEMY = 2
 
 
 class TableAgent:
-    def __init__(self, x_size, y_size):
-        self.actions = [_ACTION_NO_OP, _ACTION_ATTACK_ENEMY, _ACTION_MOVE_TO_ENEMY]
-        self.num_possible_actions = len(self.actions)
+    def __init__(self, x_size, y_size, step_size, discount):
+        self.discount = discount
+        self.step_size = step_size
+        self.num_possible_actions = 3
         self.q_table = np.zeros(shape=(x_size, y_size, self.num_possible_actions))
         self.action_epsilon = 0.1
 
@@ -27,32 +29,32 @@ class TableAgent:
         :param obs: SC2Env state
         :return: SC2Action
         """
+        state = self.sc2obs_to_table_state(obs)
+        (x, y) = state
+
         do_random_action = np.random.rand() < self.action_epsilon
         if do_random_action:
             action_index = np.random.randint(self.num_possible_actions)
         else:
-            state = self.sc2obs_to_table_state(obs)
-            (x, y) = state
             q_values = self.q_table[x, y, :]
             highest_action_value_for_state = np.argmax(q_values)
             action_index = highest_action_value_for_state
 
         if action_index == _ACTION_NO_OP:
-            pass
+            return actions.FunctionCall(actions.FUNCTIONS.no_op.id, [])
         elif action_index == _ACTION_ATTACK_ENEMY:
-            pass
+            actions.FunctionCall(actions.FUNCTIONS.Move_screen.id, [_NOT_QUEUED, (x, y)])
         elif action_index == _ACTION_MOVE_TO_ENEMY:
-            pass
+            actions.FunctionCall(actions.FUNCTIONS.Attack_screen.id, [_NOT_QUEUED, (x, y)])
         else:
             raise Exception("Illegal action index!")
 
-        selected_action = self.actions[action_index]
-
-        # TODO RETURN AN ACTUAL FUNCTION CALL that can be given to the env
-
-        return selected_action
-
-    def update(self, episode):
+    def update(self, replay_buffer):
+        """
+        Update the agent
+        :param replay_buffer: list of tuples containing (state, action, reward, next_state)
+        :return:
+        """
         pass
 
     def sc2obs_to_table_state(self, obs):
