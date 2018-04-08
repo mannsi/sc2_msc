@@ -41,7 +41,7 @@ class BaseAgent:
         dx = int(np.fabs(marine_x - scv_x))
         dy = int(np.fabs(marine_y - scv_y))
 
-        return dx, dy
+        return SimpleState(dx, dy)
 
     @staticmethod
     def marine_selected(obs):
@@ -104,12 +104,8 @@ class TableAgent(BaseAgent):
         if do_random_action:
             action_index = np.random.randint(self.num_possible_actions)
         else:
-            dx, dy = self.sc2obs_to_table_state(obs)
-            q_values = self.q_table[dx, dy, :]
-
-            # TODO what happens if there is an argmax draw ?
-            highest_action_value_for_state = np.argmax(q_values)
-            action_index = highest_action_value_for_state
+            state = self.sc2obs_to_table_state(obs)
+            action_index = self.get_max_action_val_index(state)
 
         if action_index == TableAgent.ACTION_NO_OP:
             return actions.FunctionCall(actions.FUNCTIONS.no_op.id, [])
@@ -123,5 +119,44 @@ class TableAgent(BaseAgent):
             raise Exception("Illegal action index!")
 
     def update(self, replay_buffer):
-        print(f"IN UPDATE WITH BUFFER SIZE {len(replay_buffer)}")
+        # Update formulas
+        # delta = (r + self.discount * max(Q(s_n+1,:))) - Q(s_n,a_n)
+        # Q(s_n,a_n) = Q(s_n,a_n) + self.step_size * delta
 
+        for obs, action, reward, next_obs in replay_buffer:
+            if action.function == actions.FUNCTIONS.no_op.id:
+                internal_function_action = TableAgent.ACTION_NO_OP
+            elif action.function == actions.FUNCTIONS.Move_screen.id:
+                internal_function_action = TableAgent.ACTION_MOVE_TO_ENEMY
+            elif action.function == actions.FUNCTIONS.Attack_screen.id:
+                internal_function_action = TableAgent.ACTION_ATTACK_ENEMY
+            elif action.function == actions.FUNCTIONS.select_army.id:
+                # Not an actual action, just because of a glitch in the env
+                continue
+            else:
+                raise ValueError(f"Received an unexepected action function id of value {action.function}")
+
+            # Get current Q val
+            current_state = self.sc2obs_to_table_state(obs)
+            q_current = self.q_table[current_state.dx, current_state.dy, internal_function_action]
+
+            # Get highest next Q val
+            next_state = self.sc2obs_to_table_state(next_obs)
+            index_for_max_action_value_next = self.get_max_action_val_index(next_state)
+            q_next_max = self.q_table[next_state.dx, next_state.dy, index_for_max_action_value_next]
+
+            # Update current Q val using the Bellman equation
+            delta = (reward + self.discount * q_next_max) - q_current
+            self.q_table[current_state.dx, current_state.dy, internal_function_action] = q_current + self.step_size * delta
+
+    def get_max_action_val_index(self, state):
+        q_values = self.q_table[state.dx, state.dy, :]
+        indexes_with_max_val = np.flatnonzero(q_values == q_values.max())
+        action_index = np.random.choice(indexes_with_max_val)
+        return action_index
+
+
+class SimpleState:
+    def __init__(self, dx, dy):
+        self.dx = dx
+        self.dy = dy
