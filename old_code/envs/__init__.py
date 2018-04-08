@@ -1,5 +1,4 @@
 from gym.envs.registration import register
-from envs.marine_vs_scv_envs import AttackOnly, AttackMoveNoop
 
 register(
     id='MarineVsScvAttackOnly-v0',

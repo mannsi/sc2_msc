@@ -1,21 +1,17 @@
 # noinspection PyUnresolvedReferences
-import maps
-
-# noinspection PyUnresolvedReferences
-import envs
-
 import argparse
 import logging
 
 import numpy as np
 from absl import flags
+from agents.tensorforce import ppo
+from agents.tensorforce import random, always_attack_scv
 from tensorforce.contrib.openai_gym import OpenAIGym
 from tensorforce.execution import Runner
 
-from agents.tensorforce import random, always_attack_scv, deep_q
-from agents.tensorforce import ppo
-from networks import conv_net, lstm_net
-from utils import sc2_log
+from old_code.agents.tensorforce import deep_q
+from old_code.networks import conv_net, lstm_net
+from old_code.utils import sc2_log
 
 rewards = []
 

@@ -5,7 +5,7 @@ from pysc2.env import sc2_env
 from pysc2.env.environment import StepType
 from pysc2.lib import actions
 
-from utils import sc2_log
+from old_code.utils import sc2_log
 
 _SELECT_ARMY = actions.FUNCTIONS.select_army.id
 _SELECT_ALL = [0]

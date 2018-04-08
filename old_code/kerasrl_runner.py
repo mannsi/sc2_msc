@@ -1,20 +1,16 @@
 # noinspection PyUnresolvedReferences
-import maps
-# noinspection PyUnresolvedReferences
-import envs
-
-import numpy as np
 import gym
-
-from keras.models import Sequential
-from keras.layers import Dense, Activation, Flatten, Convolution2D
-from keras.optimizers import Adam
-
-from rl.agents.dqn import DQNAgent
-from rl.policy import BoltzmannQPolicy
-from rl.memory import SequentialMemory
-
+import numpy as np
 from absl import flags
+from keras.layers import Dense, Activation, Flatten, Convolution2D
+from keras.models import Sequential
+from keras.optimizers import Adam
+from rl.agents.dqn import DQNAgent
+from rl.memory import SequentialMemory
+from rl.policy import BoltzmannQPolicy
+
+import maps
+from old_code import envs
 
 FLAGS = flags.FLAGS
 FLAGS([__file__])

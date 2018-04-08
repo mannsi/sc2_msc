@@ -1,19 +1,16 @@
-import numpy as np
+import logging
+import os
 import sys
+
+import absl.app as app
+import numpy as np
+import pysc2.bin.agent
+import utils.sc2_plotting as sc2_plotting
 from pysc2.agents import base_agent
 from pysc2.lib import actions
 from pysc2.lib import features
 
-import logging
-import os
-
-import absl.app as app
-import pysc2.bin.agent
-
-import initial_agents
-import utils.sc2_log as sc2_log
-import utils.sc2_plotting as sc2_plotting
-
+import old_code.utils.sc2_log as sc2_log
 
 # Screen features
 _PLAYER_RELATIVE = features.SCREEN_FEATURES.player_relative.index

@@ -1,7 +1,7 @@
 from gym import spaces
 from pysc2.lib import actions, features
-from envs.base_env import BaseEnv
 
+from old_code.envs.base_env import BaseEnv
 
 _PLAYER_RELATIVE = features.SCREEN_FEATURES.player_relative.index
 _PLAYER_RELATIVE_SCALE = features.SCREEN_FEATURES.player_relative.scale

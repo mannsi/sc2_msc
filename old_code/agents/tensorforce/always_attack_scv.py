@@ -1,7 +1,7 @@
 from tensorforce.agents import Agent
 from tensorforce.models.random_model import RandomModel
 
-from envs.marine_vs_scv_envs import _ATTACK_SCREEN_ACTION_INDEX
+from old_code.envs import _ATTACK_SCREEN_ACTION_INDEX
 
 _UNITS_MINE = 1
 _UNITS_ENEMY = 4

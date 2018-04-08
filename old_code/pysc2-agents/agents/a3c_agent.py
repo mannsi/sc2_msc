@@ -7,8 +7,8 @@ import tensorflow as tf
 from pysc2.lib import actions
 from pysc2.lib import features
 
-from agents.network import build_net
-import utils as U
+from old_code import utils as U
+from old_code.agents import build_net
 
 
 class A3CAgent(object):
