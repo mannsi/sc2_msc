@@ -26,7 +26,7 @@ flags.DEFINE_float("discount", 0.99, "Discount rate for future rewards.")
 flags.DEFINE_enum("agent_race", None, sc2_env.races.keys(), "Agent's race.")
 flags.DEFINE_enum("bot_race", None, sc2_env.races.keys(), "Bot's race.")
 flags.DEFINE_enum("difficulty", None, sc2_env.difficulties.keys(), "Bot's strength.")
-flags.DEFINE_integer("snapshot_step", int(1e3), "Step for snapshot.")
+flags.DEFINE_integer("snapshot_step", int(1e2), "Step for snapshot.")  # I use this to run the agent without training
 flags.DEFINE_string("snapshot_path", "./snapshot/", "Path for snapshot.")
 flags.DEFINE_string("log_path", "./log/", "Path for log.")
 flags.DEFINE_string("device", "0", "Device for training.")
@@ -46,16 +46,19 @@ flags.DEFINE_string("agent", "always_attack", "Which agent to run.")
 flags.DEFINE_string("net", "atari", "atari or fcn.")
 
 FLAGS(sys.argv)
-LOG = os.path.join(FLAGS.log_path, FLAGS.agent)
-SNAPSHOT = FLAGS.snapshot_path + FLAGS.map + '/' + FLAGS.net
+TRAIN_LOG = os.path.join(FLAGS.log_path, FLAGS.agent, str(FLAGS.step_mul), 'TRAIN')
+TEST_LOG = os.path.join(FLAGS.log_path, FLAGS.agent, str(FLAGS.step_mul), 'TEST')
+# SNAPSHOT = FLAGS.snapshot_path + FLAGS.map + '/' + FLAGS.net
 NUM_EPISODES = FLAGS.max_steps
-if not os.path.exists(LOG):
-    os.makedirs(LOG)
-if not os.path.exists(SNAPSHOT):
-    os.makedirs(SNAPSHOT)
+if not os.path.exists(TRAIN_LOG):
+    os.makedirs(TRAIN_LOG)
+if not os.path.exists(TEST_LOG):
+    os.makedirs(TEST_LOG)
+# if not os.path.exists(SNAPSHOT):
+#     os.makedirs(SNAPSHOT)
 
 
-def run_agent(agent, map_name, visualize, tb_writer):
+def run_agent(agent, map_name, visualize, tb_training_writer, tb_testing_writer):
     start_time = time.time()
     with sc2_env.SC2Env(
             map_name=map_name,
@@ -74,7 +77,17 @@ def run_agent(agent, map_name, visualize, tb_writer):
 
                 if obs.last():
                     agent.update(replay_buffer)
-                    log_episode(tb_writer, obs, episode_number)
+
+                    if agent.training_mode:
+                        log_episode(tb_training_writer, obs, episode_number)
+                    else:
+                        log_episode(tb_testing_writer, obs, episode_number)
+
+                    should_test_agent = episode_number % FLAGS.snapshot_step == 1
+                    if should_test_agent:
+                        agent.training_mode = False
+                    else:
+                        agent.training_mode = True
                     break  # Exit episode
 
     elapsed_time = time.time() - start_time
@@ -101,9 +114,10 @@ def run(unused_argv):
     else:
         raise NotImplementedError()
 
-    tb_writer = tf.summary.FileWriter(LOG)
+    tb_training_writer = tf.summary.FileWriter(TRAIN_LOG)
+    tb_testing_writer = tf.summary.FileWriter(TEST_LOG)
 
-    run_agent(agent, FLAGS.map, FLAGS.render, tb_writer)
+    run_agent(agent, FLAGS.map, FLAGS.render, tb_training_writer, tb_testing_writer)
 
 if __name__ == "__main__":
     app.run(run)

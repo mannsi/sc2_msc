@@ -14,6 +14,9 @@ _SELECT_ALL = [0]
 
 class BaseAgent:
     """ Base agent that uses (dx, dy) between marine and scv as state """
+    def __init__(self):
+        self.is_training = True
+
     def step(self, obs):
         """
         Take a step and return an action using the policy
@@ -28,6 +31,14 @@ class BaseAgent:
         :param replay_buffer: list of tuples containing (obs, action, reward, next_obs)
         """
         raise NotImplementedError()
+
+    @property
+    def training_mode(self):
+        return self.is_training
+
+    @training_mode.setter
+    def training_mode(self, val):
+        self.is_training = val
 
     def sc2obs_to_table_state(self, obs):
         """
@@ -90,18 +101,19 @@ class TableAgent(BaseAgent):
     ACTION_MOVE_TO_ENEMY = 2
 
     def __init__(self, x_size, y_size, step_size, discount):
+        super().__init__()
         self.discount = discount
         self.step_size = step_size
         self.num_possible_actions = 3
         self.q_table = np.zeros(shape=(x_size, y_size, self.num_possible_actions))
-        self.action_epsilon = 0.1
+        self.epsilon = 0.1
 
     def step(self, obs):
         if not self.marine_selected(obs):
             return actions.FunctionCall(actions.FUNCTIONS.select_army.id, [_SELECT_ALL])
 
-        do_random_action = np.random.rand() < self.action_epsilon
-        if do_random_action:
+        do_random_action = np.random.rand() < self.epsilon
+        if do_random_action and self.is_training:
             action_index = np.random.randint(self.num_possible_actions)
         else:
             state = self.sc2obs_to_table_state(obs)
