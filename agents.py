@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 from pysc2.lib import features, actions
 
 # Screen features
@@ -100,12 +101,11 @@ class TableAgent(BaseAgent):
     ACTION_ATTACK_ENEMY = 1
     ACTION_MOVE_TO_ENEMY = 2
 
-    def __init__(self, x_size, y_size, step_size, discount):
+    def __init__(self, learning_rate, reward_decay, epsilon_greedy):
         super().__init__()
-        self.discount = discount
-        self.step_size = step_size
-        self.num_possible_actions = 3
-        self.q_table = np.zeros(shape=(x_size, y_size, self.num_possible_actions))
+        possible_actions = [actions.FUNCTIONS.no_op.id, actions.FUNCTIONS.Move_screen.id, actions.FUNCTIONS.Attack_screen.id]
+        self.q_table = QLearningTable(possible_actions, learning_rate, reward_decay, epsilon_greedy)
+        # self.q_table = np.zeros(shape=(x_size, y_size, self.num_possible_actions))
         self.epsilon = 0.1
 
     def step(self, obs):
@@ -159,7 +159,7 @@ class TableAgent(BaseAgent):
 
             # Update current Q val using the Bellman equation
             delta = (reward + self.discount * q_next_max) - q_current
-            self.q_table[current_state.dx, current_state.dy, internal_function_action] = q_current + self.step_size * delta
+            self.q_table[current_state.dx, current_state.dy, internal_function_action] = q_current + self.learning_rate * delta
 
     def get_max_action_val_index(self, state):
         q_values = self.q_table[state.dx, state.dy, :]
@@ -172,3 +172,45 @@ class SimpleState:
     def __init__(self, dx, dy):
         self.dx = dx
         self.dy = dy
+
+
+class QLearningTable:
+    def __init__(self, actions, learning_rate=0.01, reward_decay=0.9, e_greedy=0.9):
+        self.actions = actions
+        self.lr = learning_rate
+        self.gamma = reward_decay
+        self.epsilon = e_greedy
+        self.q_table = pd.DataFrame(columns=self.actions, dtype=np.float64)
+
+    def choose_action(self, observation):
+        self.check_state_exist(observation)
+
+        if np.random.uniform() < self.epsilon:
+            # choose best action
+            state_action = self.q_table.ix[observation, :]
+
+            # some actions have the same value
+            state_action = state_action.reindex(np.random.permutation(state_action.index))
+
+            action = state_action.idxmax()
+        else:
+            # choose random action
+            action = np.random.choice(self.actions)
+
+        return action
+
+    def learn(self, s, a, r, s_):
+        self.check_state_exist(s_)
+        self.check_state_exist(s)
+
+        q_predict = self.q_table.ix[s, a]
+        q_target = r + self.gamma * self.q_table.ix[s_, :].max()
+
+        # update
+        self.q_table.ix[s, a] += self.lr * (q_target - q_predict)
+
+    def check_state_exist(self, state):
+        if state not in self.q_table.index:
+            # append new state to q table
+            self.q_table = self.q_table.append(
+                pd.Series([0] * len(self.actions), index=self.q_table.columns, name=state))
