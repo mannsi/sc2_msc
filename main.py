@@ -6,6 +6,7 @@ import os
 import sys
 import threading
 import time
+import random
 
 import tensorflow as tf
 from absl import app
@@ -45,6 +46,9 @@ flags.DEFINE_integer("max_agent_steps", 100,
 flags.DEFINE_string("agent", "always_attack", "Which agent to run.")
 flags.DEFINE_string("net", "atari", "atari or fcn.")
 
+flags.DEFINE_integer("episodes_between_updates", 1, "How many episodes to run before updating agent")
+flags.DEFINE_bool("randomize_replay_buffer", True, "Randomize the replay buffer before updating an agent")
+
 FLAGS(sys.argv)
 BASE_LOG_PATH = os.path.join(FLAGS.log_path, FLAGS.agent, str(FLAGS.step_mul))
 # TRAIN_LOG = os.path.join(FLAGS.log_path, FLAGS.agent, str(FLAGS.step_mul), 'TRAIN')
@@ -73,8 +77,8 @@ def run_agent(agent, map_name, visualize, tb_training_writer, tb_testing_writer)
             screen_size_px=(FLAGS.screen_resolution, FLAGS.screen_resolution),
             minimap_size_px=(FLAGS.minimap_resolution, FLAGS.minimap_resolution),
             visualize=visualize) as env:
+        replay_buffer = []
         for episode_number in range(1, NUM_EPISODES+1):
-            replay_buffer = []
             obs = env.reset()[0]  # Initial obs from env
             while True:
                 prev_obs = obs
@@ -83,7 +87,12 @@ def run_agent(agent, map_name, visualize, tb_training_writer, tb_testing_writer)
                 replay_buffer.append((prev_obs, action, obs.reward, obs))
 
                 if obs.last():
-                    agent.update(replay_buffer)
+                    should_update_agent = episode_number % FLAGS.episodes_between_updates == 1
+                    if should_update_agent:
+                        if FLAGS.randomize_replay_buffer:
+                            random.shuffle(replay_buffer)
+                        agent.update(replay_buffer)
+                        replay_buffer = []
 
                     if agent.training_mode:
                         log_episode(tb_training_writer, obs, episode_number)
@@ -92,6 +101,7 @@ def run_agent(agent, map_name, visualize, tb_training_writer, tb_testing_writer)
 
                     should_test_agent = episode_number % FLAGS.snapshot_step == 1
                     if should_test_agent:
+                        # Next episode will be a test episode
                         agent.training_mode = False
                     else:
                         agent.training_mode = True
