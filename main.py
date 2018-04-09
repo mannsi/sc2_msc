@@ -46,16 +46,23 @@ flags.DEFINE_string("agent", "always_attack", "Which agent to run.")
 flags.DEFINE_string("net", "atari", "atari or fcn.")
 
 FLAGS(sys.argv)
-TRAIN_LOG = os.path.join(FLAGS.log_path, FLAGS.agent, str(FLAGS.step_mul), 'TRAIN')
-TEST_LOG = os.path.join(FLAGS.log_path, FLAGS.agent, str(FLAGS.step_mul), 'TEST')
+BASE_LOG_PATH = os.path.join(FLAGS.log_path, FLAGS.agent, str(FLAGS.step_mul))
+# TRAIN_LOG = os.path.join(FLAGS.log_path, FLAGS.agent, str(FLAGS.step_mul), 'TRAIN')
+# TEST_LOG = os.path.join(FLAGS.log_path, FLAGS.agent, str(FLAGS.step_mul), 'TEST')
 # SNAPSHOT = FLAGS.snapshot_path + FLAGS.map + '/' + FLAGS.net
 NUM_EPISODES = FLAGS.max_steps
-if not os.path.exists(TRAIN_LOG):
-    os.makedirs(TRAIN_LOG)
-if not os.path.exists(TEST_LOG):
-    os.makedirs(TEST_LOG)
-# if not os.path.exists(SNAPSHOT):
-#     os.makedirs(SNAPSHOT)
+
+# Have incremental log counter runs
+log_counter = 0
+while True:
+    log_counter += 1
+    run_log_path = os.path.join(BASE_LOG_PATH, str(log_counter))
+    if not os.path.exists(run_log_path):
+        TRAIN_LOG = os.path.join(run_log_path, 'TRAIN')
+        TEST_LOG = os.path.join(run_log_path, 'TEST')
+        os.makedirs(TRAIN_LOG)
+        os.makedirs(TEST_LOG)
+        break
 
 
 def run_agent(agent, map_name, visualize, tb_training_writer, tb_testing_writer):
