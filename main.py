@@ -84,10 +84,11 @@ def run_agent(agent, map_name, visualize, tb_training_writer, tb_testing_writer)
                 prev_obs = obs
                 action = agent.step(obs)
                 obs = env.step([action])[0]
-                replay_buffer.append((prev_obs, action, obs.reward, obs))
+                s, a, r, s_ = agent.sc2obs_to_table_state(prev_obs), action.function, obs.reward, agent.sc2obs_to_table_state(obs)
+                replay_buffer.append((s, a, r, s_))
 
                 if obs.last():
-                    should_update_agent = episode_number % FLAGS.episodes_between_updates == 1
+                    should_update_agent = episode_number % FLAGS.episodes_between_updates == 0
                     if should_update_agent:
                         if FLAGS.randomize_replay_buffer:
                             random.shuffle(replay_buffer)
@@ -99,7 +100,7 @@ def run_agent(agent, map_name, visualize, tb_training_writer, tb_testing_writer)
                     else:
                         log_episode(tb_testing_writer, obs, episode_number)
 
-                    should_test_agent = episode_number % FLAGS.snapshot_step == 1
+                    should_test_agent = episode_number % FLAGS.snapshot_step == 0
                     if should_test_agent:
                         # Next episode will be a test episode
                         agent.training_mode = False

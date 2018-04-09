@@ -90,7 +90,7 @@ class AlwaysAttackAgent(BaseAgent):
             scv_x, scv_y = self._get_enemy_unit_location(obs)
             return actions.FunctionCall(actions.FUNCTIONS.Attack_screen.id, [_NOT_QUEUED, (scv_x, scv_y)])
         else:
-            return actions.FunctionCall(actions.FUNCTIONS.select_army.id, [_SELECT_ALL])
+            return actions.FunctionCall(actions.FUNCTIONS.no_op.id, [])
 
     def update(self, replay_buffer):
         pass
@@ -105,7 +105,7 @@ class TableAgent(BaseAgent):
 
     def step(self, obs):
         if not self.marine_selected(obs):
-            return actions.FunctionCall(actions.FUNCTIONS.select_army.id, [_SELECT_ALL])
+            return actions.FunctionCall(actions.FUNCTIONS.no_op.id, [])
 
         state = self.sc2obs_to_table_state(obs)
         action = self.q_table.choose_action(state, self.is_training)
@@ -124,10 +124,8 @@ class TableAgent(BaseAgent):
         return actions.FunctionCall(action, action_param)
 
     def update(self, replay_buffer):
-        for obs, action, reward, next_obs in replay_buffer:
-            state = self.sc2obs_to_table_state(obs)
-            next_state = self.sc2obs_to_table_state(next_obs)
-            self.q_table.learn(state, action.function, reward, next_state)
+        for state, action, reward, next_state in replay_buffer:
+            self.q_table.learn(state, action, reward, next_state)
 
 
 class QLearningTable:
