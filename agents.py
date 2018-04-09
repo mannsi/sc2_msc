@@ -53,7 +53,7 @@ class BaseAgent:
         dx = int(np.fabs(marine_x - scv_x))
         dy = int(np.fabs(marine_y - scv_y))
 
-        return SimpleState(dx, dy)
+        return str((dx, dy))
 
     @staticmethod
     def marine_selected(obs):
@@ -97,81 +97,37 @@ class AlwaysAttackAgent(BaseAgent):
 
 
 class TableAgent(BaseAgent):
-    ACTION_NO_OP = 0
-    ACTION_ATTACK_ENEMY = 1
-    ACTION_MOVE_TO_ENEMY = 2
-
     def __init__(self, learning_rate, reward_decay, epsilon_greedy):
         super().__init__()
-        possible_actions = [actions.FUNCTIONS.no_op.id, actions.FUNCTIONS.Move_screen.id, actions.FUNCTIONS.Attack_screen.id]
-        self.q_table = QLearningTable(possible_actions, learning_rate, reward_decay, epsilon_greedy)
-        # self.q_table = np.zeros(shape=(x_size, y_size, self.num_possible_actions))
+        self.actions = [actions.FUNCTIONS.no_op.id, actions.FUNCTIONS.Move_screen.id, actions.FUNCTIONS.Attack_screen.id]
+        self.q_table = QLearningTable(self.actions, learning_rate, reward_decay, epsilon_greedy)
         self.epsilon = 0.1
 
     def step(self, obs):
         if not self.marine_selected(obs):
             return actions.FunctionCall(actions.FUNCTIONS.select_army.id, [_SELECT_ALL])
 
-        do_random_action = np.random.rand() < self.epsilon
-        if do_random_action and self.is_training:
-            action_index = np.random.randint(self.num_possible_actions)
-        else:
-            state = self.sc2obs_to_table_state(obs)
-            action_index = self.get_max_action_val_index(state)
+        state = self.sc2obs_to_table_state(obs)
+        action = self.q_table.choose_action(state, self.is_training)
 
-        if action_index == TableAgent.ACTION_NO_OP:
-            return actions.FunctionCall(actions.FUNCTIONS.no_op.id, [])
-        elif action_index == TableAgent.ACTION_ATTACK_ENEMY:
+        if action == actions.FUNCTIONS.no_op.id:
+            action_param = []
+        elif action == actions.FUNCTIONS.Move_screen.id:
             scv_x, scv_y = self._get_enemy_unit_location(obs)
-            return actions.FunctionCall(actions.FUNCTIONS.Move_screen.id, [_NOT_QUEUED, (scv_x, scv_y)])
-        elif action_index == TableAgent.ACTION_MOVE_TO_ENEMY:
+            action_param = [_NOT_QUEUED, (scv_x, scv_y)]
+        elif action == actions.FUNCTIONS.Attack_screen.id:
             scv_x, scv_y = self._get_enemy_unit_location(obs)
-            return actions.FunctionCall(actions.FUNCTIONS.Attack_screen.id, [_NOT_QUEUED, (scv_x, scv_y)])
+            action_param = [_NOT_QUEUED, (scv_x, scv_y)]
         else:
             raise Exception("Illegal action index!")
 
+        return actions.FunctionCall(action, action_param)
+
     def update(self, replay_buffer):
-        # Update formulas
-        # delta = (r + self.discount * max(Q(s_n+1,:))) - Q(s_n,a_n)
-        # Q(s_n,a_n) = Q(s_n,a_n) + self.step_size * delta
-
         for obs, action, reward, next_obs in replay_buffer:
-            if action.function == actions.FUNCTIONS.no_op.id:
-                internal_function_action = TableAgent.ACTION_NO_OP
-            elif action.function == actions.FUNCTIONS.Move_screen.id:
-                internal_function_action = TableAgent.ACTION_MOVE_TO_ENEMY
-            elif action.function == actions.FUNCTIONS.Attack_screen.id:
-                internal_function_action = TableAgent.ACTION_ATTACK_ENEMY
-            elif action.function == actions.FUNCTIONS.select_army.id:
-                # Not an actual action, just because of a glitch in the env
-                continue
-            else:
-                raise ValueError(f"Received an unexepected action function id of value {action.function}")
-
-            # Get current Q val
-            current_state = self.sc2obs_to_table_state(obs)
-            q_current = self.q_table[current_state.dx, current_state.dy, internal_function_action]
-
-            # Get highest next Q val
+            state = self.sc2obs_to_table_state(obs)
             next_state = self.sc2obs_to_table_state(next_obs)
-            index_for_max_action_value_next = self.get_max_action_val_index(next_state)
-            q_next_max = self.q_table[next_state.dx, next_state.dy, index_for_max_action_value_next]
-
-            # Update current Q val using the Bellman equation
-            delta = (reward + self.discount * q_next_max) - q_current
-            self.q_table[current_state.dx, current_state.dy, internal_function_action] = q_current + self.learning_rate * delta
-
-    def get_max_action_val_index(self, state):
-        q_values = self.q_table[state.dx, state.dy, :]
-        indexes_with_max_val = np.flatnonzero(q_values == q_values.max())
-        action_index = np.random.choice(indexes_with_max_val)
-        return action_index
-
-
-class SimpleState:
-    def __init__(self, dx, dy):
-        self.dx = dx
-        self.dy = dy
+            self.q_table.learn(state, action.function, reward, next_state)
 
 
 class QLearningTable:
@@ -182,12 +138,12 @@ class QLearningTable:
         self.epsilon = e_greedy
         self.q_table = pd.DataFrame(columns=self.actions, dtype=np.float64)
 
-    def choose_action(self, observation):
-        self.check_state_exist(observation)
+    def choose_action(self, state, allow_random):
+        self.check_state_exist(state)
 
-        if np.random.uniform() < self.epsilon:
+        if not allow_random or np.random.uniform() < self.epsilon:
             # choose best action
-            state_action = self.q_table.ix[observation, :]
+            state_action = self.q_table.ix[state, :]
 
             # some actions have the same value
             state_action = state_action.reindex(np.random.permutation(state_action.index))

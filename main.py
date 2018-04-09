@@ -114,10 +114,9 @@ def run(unused_argv):
     if FLAGS.agent == "always_attack":
         agent = AlwaysAttackAgent()
     elif FLAGS.agent == "table":
-        agent = TableAgent(x_size=FLAGS.screen_resolution,
-                           y_size=FLAGS.screen_resolution,
-                           step_size=FLAGS.learning_rate,
-                           discount=FLAGS.discount)
+        agent = TableAgent(learning_rate=FLAGS.learning_rate,
+                           reward_decay=FLAGS.discount,
+                           epsilon_greedy=0.9)
     else:
         raise NotImplementedError()
 
