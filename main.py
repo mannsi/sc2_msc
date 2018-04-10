@@ -13,7 +13,8 @@ from pysc2.lib import actions
 
 # noinspection PyUnresolvedReferences
 import maps as my_maps
-from agents import TableAgent, AlwaysAttackAgent, ScAction
+from agents import TableAgent, AlwaysAttackAgent, RandomAgent
+from sc_action import ScAction
 
 LOCK = threading.Lock()
 FLAGS = flags.FLAGS
@@ -45,6 +46,8 @@ flags.DEFINE_string("net", "atari", "atari or fcn.")
 
 flags.DEFINE_integer("episodes_between_updates", 1, "How many episodes to run before updating agent")
 flags.DEFINE_bool("randomize_replay_buffer", True, "Randomize the replay buffer before updating an agent")
+flags.DEFINE_bool("test_agent", True, "To run agent both in training and test mode")
+
 
 FLAGS(sys.argv)
 BASE_LOG_PATH = os.path.join(FLAGS.log_path, FLAGS.agent, str(FLAGS.step_mul))
@@ -60,9 +63,11 @@ while True:
     run_log_path = os.path.join(BASE_LOG_PATH, str(log_counter))
     if not os.path.exists(run_log_path):
         TRAIN_LOG = os.path.join(run_log_path, 'TRAIN')
-        TEST_LOG = os.path.join(run_log_path, 'TEST')
         os.makedirs(TRAIN_LOG)
-        os.makedirs(TEST_LOG)
+
+        if FLAGS.test_agent:
+            TEST_LOG = os.path.join(run_log_path, 'TEST')
+            os.makedirs(TEST_LOG)
         break
 
 
@@ -97,7 +102,7 @@ def run_agent(agent, map_name, visualize, tb_training_writer, tb_testing_writer)
                     else:
                         log_episode(tb_testing_writer, obs, episode_number)
 
-                    should_test_agent = episode_number % FLAGS.snapshot_step == 0
+                    should_test_agent = FLAGS.test_agent and episode_number % FLAGS.snapshot_step == 0
                     if should_test_agent:
                         # Next episode will be a test episode
                         agent.training_mode = False
@@ -130,6 +135,8 @@ def run(unused_argv):
                            reward_decay=FLAGS.discount,
                            epsilon_greedy=0.9,
                            sc_actions=sc_actions)
+    elif FLAGS.agent == "random":
+        agent = RandomAgent(sc_actions=sc_actions)
     else:
         raise NotImplementedError()
 

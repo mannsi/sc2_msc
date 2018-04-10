@@ -96,6 +96,34 @@ class AlwaysAttackAgent(BaseAgent):
         pass
 
 
+class RandomAgent(BaseAgent):
+    def __init__(self, sc_actions):
+        """
+        :param sc_actions: list[ScAction]
+        :param learning_rate:
+        :param reward_decay:
+        :param epsilon_greedy:
+        """
+        super().__init__()
+        self.sc_actions = sc_actions
+
+    def step(self, obs):
+        if not self.marine_selected(obs):
+            return actions.FunctionCall(actions.FUNCTIONS.no_op.id, [])
+
+        selected_action = np.random.choice(self.sc_actions)
+
+        if selected_action.req_location:
+            scv_x, scv_y = self._get_enemy_unit_location(obs)
+            action_param = [_NOT_QUEUED, (scv_x, scv_y)]
+        else:
+            action_param = []
+        return actions.FunctionCall(selected_action.id, action_param)
+
+    def update(self, replay_buffer):
+        pass
+
+
 class TableAgent(BaseAgent):
     def __init__(self, sc_actions, learning_rate, reward_decay, epsilon_greedy):
         """
@@ -170,9 +198,3 @@ class QLearningTable:
             # append new state to q table
             self.q_table = self.q_table.append(
                 pd.Series([0] * len(self.action_ids), index=self.q_table.columns, name=state))
-
-
-class ScAction:
-    def __init__(self, id, req_location):
-        self.id = id
-        self.req_location = req_location
