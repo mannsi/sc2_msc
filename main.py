@@ -13,7 +13,8 @@ from pysc2.lib import actions
 
 # noinspection PyUnresolvedReferences
 import maps as my_maps
-from agents import TableAgent, AlwaysAttackAgent, RandomAgent
+from agents import Sc2Agent
+from models import AlwayAttackScvModel, RandomModel, QLearningTableScvFocusedModel
 from sc_action import ScAction
 
 LOCK = threading.Lock()
@@ -51,9 +52,6 @@ flags.DEFINE_bool("test_agent", True, "To run agent both in training and test mo
 
 FLAGS(sys.argv)
 BASE_LOG_PATH = os.path.join(FLAGS.log_path, FLAGS.agent, str(FLAGS.step_mul))
-# TRAIN_LOG = os.path.join(FLAGS.log_path, FLAGS.agent, str(FLAGS.step_mul), 'TRAIN')
-# TEST_LOG = os.path.join(FLAGS.log_path, FLAGS.agent, str(FLAGS.step_mul), 'TEST')
-# SNAPSHOT = FLAGS.snapshot_path + FLAGS.map + '/' + FLAGS.net
 NUM_EPISODES = FLAGS.max_steps
 
 # Have incremental log counter runs
@@ -84,9 +82,9 @@ def run_agent(agent, map_name, visualize, tb_training_writer, tb_testing_writer)
             obs = env.reset()[0]  # Initial obs from env
             while True:
                 prev_obs = obs
-                action = agent.step(obs)
+                action = agent.act(obs)
                 obs = env.step([action])[0]
-                s, a, r, s_ = agent.sc2obs_to_table_state(prev_obs), action.function, obs.reward, agent.sc2obs_to_table_state(obs)
+                s, a, r, s_ = agent.obs_to_state(prev_obs), action.function, obs.reward, agent.obs_to_state(obs)
                 replay_buffer.append((s, a, r, s_))
 
                 if obs.last():
@@ -94,7 +92,7 @@ def run_agent(agent, map_name, visualize, tb_training_writer, tb_testing_writer)
                     if should_update_agent:
                         if FLAGS.randomize_replay_buffer:
                             random.shuffle(replay_buffer)
-                        agent.update(replay_buffer)
+                        agent.observe(replay_buffer)
                         replay_buffer = []
 
                     if agent.training_mode:
@@ -129,16 +127,18 @@ def run(unused_argv):
                   ScAction(actions.FUNCTIONS.Attack_screen.id, True)]
 
     if FLAGS.agent == "always_attack":
-        agent = AlwaysAttackAgent()
-    elif FLAGS.agent == "table":
-        agent = TableAgent(learning_rate=FLAGS.learning_rate,
-                           reward_decay=FLAGS.discount,
-                           epsilon_greedy=0.9,
-                           sc_actions=sc_actions)
+        model = AlwayAttackScvModel([ScAction(actions.FUNCTIONS.Attack_screen.id, True)])
     elif FLAGS.agent == "random":
-        agent = RandomAgent(sc_actions=sc_actions)
+        model = RandomModel(sc_actions)
+    elif FLAGS.agent == "table":
+        model = QLearningTableScvFocusedModel(possible_actions=sc_actions,
+                                              learning_rate=FLAGS.learning_rate,
+                                              reward_decay=FLAGS.discount,
+                                              epsilon_greedy=0.9)
     else:
         raise NotImplementedError()
+
+    agent = Sc2Agent(model)
 
     tb_training_writer = tf.summary.FileWriter(TRAIN_LOG)
     tb_testing_writer = tf.summary.FileWriter(TEST_LOG)
