@@ -1,7 +1,3 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import os
 import sys
 import threading
@@ -13,10 +9,11 @@ from absl import app
 from absl import flags
 from pysc2.env import sc2_env
 from pysc2.lib import stopwatch
+from pysc2.lib import actions
 
 # noinspection PyUnresolvedReferences
 import maps as my_maps
-from agents import TableAgent, AlwaysAttackAgent
+from agents import TableAgent, AlwaysAttackAgent, ScAction
 
 LOCK = threading.Lock()
 FLAGS = flags.FLAGS
@@ -122,12 +119,17 @@ def run(unused_argv):
     stopwatch.sw.enabled = FLAGS.profile or FLAGS.trace
     stopwatch.sw.trace = FLAGS.trace
 
+    sc_actions = [ScAction(actions.FUNCTIONS.no_op.id, False),
+                  ScAction(actions.FUNCTIONS.Move_screen.id, True),
+                  ScAction(actions.FUNCTIONS.Attack_screen.id, True)]
+
     if FLAGS.agent == "always_attack":
         agent = AlwaysAttackAgent()
     elif FLAGS.agent == "table":
         agent = TableAgent(learning_rate=FLAGS.learning_rate,
                            reward_decay=FLAGS.discount,
-                           epsilon_greedy=0.9)
+                           epsilon_greedy=0.9,
+                           sc_actions=sc_actions)
     else:
         raise NotImplementedError()
 
@@ -135,6 +137,7 @@ def run(unused_argv):
     tb_testing_writer = tf.summary.FileWriter(TEST_LOG)
 
     run_agent(agent, FLAGS.map, FLAGS.render, tb_training_writer, tb_testing_writer)
+
 
 if __name__ == "__main__":
     app.run(run)

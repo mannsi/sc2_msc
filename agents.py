@@ -97,10 +97,17 @@ class AlwaysAttackAgent(BaseAgent):
 
 
 class TableAgent(BaseAgent):
-    def __init__(self, learning_rate, reward_decay, epsilon_greedy):
+    def __init__(self, sc_actions, learning_rate, reward_decay, epsilon_greedy):
+        """
+        :param sc_actions: list[ScAction]
+        :param learning_rate:
+        :param reward_decay:
+        :param epsilon_greedy:
+        """
         super().__init__()
-        self.actions = [actions.FUNCTIONS.no_op.id, actions.FUNCTIONS.Move_screen.id, actions.FUNCTIONS.Attack_screen.id]
-        self.q_table = QLearningTable(self.actions, learning_rate, reward_decay, epsilon_greedy)
+        self.sc_actions = sc_actions
+        sc_action_ids = [a.id for a in sc_actions]
+        self.q_table = QLearningTable(sc_action_ids, learning_rate, reward_decay, epsilon_greedy)
         self.epsilon = 0.1
 
     def step(self, obs):
@@ -108,20 +115,15 @@ class TableAgent(BaseAgent):
             return actions.FunctionCall(actions.FUNCTIONS.no_op.id, [])
 
         state = self.sc2obs_to_table_state(obs)
-        action = self.q_table.choose_action(state, self.is_training)
+        selected_action_id = self.q_table.choose_action(state, self.is_training)
+        selected_action = [a for a in self.sc_actions if a.id == selected_action_id][0]
 
-        if action == actions.FUNCTIONS.no_op.id:
-            action_param = []
-        elif action == actions.FUNCTIONS.Move_screen.id:
-            scv_x, scv_y = self._get_enemy_unit_location(obs)
-            action_param = [_NOT_QUEUED, (scv_x, scv_y)]
-        elif action == actions.FUNCTIONS.Attack_screen.id:
+        if selected_action.req_location:
             scv_x, scv_y = self._get_enemy_unit_location(obs)
             action_param = [_NOT_QUEUED, (scv_x, scv_y)]
         else:
-            raise Exception("Illegal action index!")
-
-        return actions.FunctionCall(action, action_param)
+            action_param = []
+        return actions.FunctionCall(selected_action.id, action_param)
 
     def update(self, replay_buffer):
         for state, action, reward, next_state in replay_buffer:
@@ -129,12 +131,12 @@ class TableAgent(BaseAgent):
 
 
 class QLearningTable:
-    def __init__(self, actions, learning_rate=0.01, reward_decay=0.9, e_greedy=0.9):
-        self.actions = actions
+    def __init__(self, action_ids, learning_rate=0.01, reward_decay=0.9, e_greedy=0.9):
+        self.action_ids = action_ids
         self.lr = learning_rate
         self.gamma = reward_decay
         self.epsilon = e_greedy
-        self.q_table = pd.DataFrame(columns=self.actions, dtype=np.float64)
+        self.q_table = pd.DataFrame(columns=self.action_ids, dtype=np.float64)
 
     def choose_action(self, state, allow_random):
         self.check_state_exist(state)
@@ -149,7 +151,7 @@ class QLearningTable:
             action = state_action.idxmax()
         else:
             # choose random action
-            action = np.random.choice(self.actions)
+            action = np.random.choice(self.action_ids)
 
         return action
 
@@ -167,4 +169,10 @@ class QLearningTable:
         if state not in self.q_table.index:
             # append new state to q table
             self.q_table = self.q_table.append(
-                pd.Series([0] * len(self.actions), index=self.q_table.columns, name=state))
+                pd.Series([0] * len(self.action_ids), index=self.q_table.columns, name=state))
+
+
+class ScAction:
+    def __init__(self, id, req_location):
+        self.id = id
+        self.req_location = req_location
