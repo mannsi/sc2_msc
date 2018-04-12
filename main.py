@@ -84,8 +84,8 @@ def run_agent(agent, map_name, visualize, tb_training_writer, tb_testing_writer)
             while True:
                 prev_obs = obs
                 action = agent.act(obs)
-                obs = env.step([action])[0]
-                s, a, r, s_ = agent.obs_to_state(prev_obs), action.function, obs.reward, agent.obs_to_state(obs)
+                obs = env.step([action.get_function_call()])[0]
+                s, a, r, s_ = agent.obs_to_state(prev_obs), action, obs.reward, agent.obs_to_state(obs)
                 replay_buffer.append((s, a, r, s_))
 
                 if obs.last():

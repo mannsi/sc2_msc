@@ -21,27 +21,27 @@ class Sc2Agent:
         :return: SC2Action
         """
         if not self.marine_selected(obs):
-            return ScAction(constants.NO_OP, actions.FUNCTIONS.no_op.id, has_location=False).get_function_call()
+            return ScAction(constants.NO_OP, actions.FUNCTIONS.no_op.id, has_location=False)
         return self._act(obs)
 
     def _act(self, obs):
         sc_action = self.model.select_action(obs)
 
         if sc_action.internal_id == constants.NO_OP:
-            action = sc_action.get_function_call()
+            pass
         elif sc_action.internal_id == constants.ATTACK_ENEMY:
             location = get_enemy_unit_location(obs)
-            action = sc_action.get_function_call(location)
+            sc_action.set_location(location)
         elif sc_action.internal_id == constants.MOVE_TO_ENEMY:
             location = get_enemy_unit_location(obs)
-            action = sc_action.get_function_call(location)
+            sc_action.set_location(location)
         elif sc_action.internal_id == constants.MOVE_FROM_ENEMY:
             location = self.get_location_away(obs)
-            action = sc_action.get_function_call(location)
+            sc_action.set_location(location)
         else:
             raise NotImplementedError("Unknown action ID received")
 
-        return action
+        return sc_action
 
     def observe(self, replay_buffer):
         """

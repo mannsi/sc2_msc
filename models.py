@@ -32,7 +32,7 @@ class Sc2Model:
         marine_loc = np.array(get_own_unit_location(obs))
         enemy_loc = np.array(get_enemy_unit_location(obs))
         dist = np.linalg.norm(marine_loc - enemy_loc)
-        return dist
+        return str(dist)
 
     @property
     def training_mode(self):
@@ -63,7 +63,7 @@ class QLearningTableEnemyFocusedModel(Sc2Model):
     """ Q learning table model where location is always on SCV """
     def __init__(self, possible_actions, learning_rate=0.01, reward_decay=0.9, epsilon_greedy=0.9):
         super().__init__(possible_actions)
-        self.possible_actions_dict = {a.action_id: a for a in possible_actions}
+        self.possible_actions_dict = {a.internal_id: a for a in possible_actions}
         self.lr = learning_rate
         self.gamma = reward_decay
         self.init_epsilon = epsilon_greedy
@@ -81,8 +81,8 @@ class QLearningTableEnemyFocusedModel(Sc2Model):
             # Shuffle to select randomly if some states are equal
             state_action_q_values = state_action_q_values.reindex(np.random.permutation(state_action_q_values.index))
 
-            best_action_id_for_state = state_action_q_values.idxmax()
-            action = self.possible_actions_dict[best_action_id_for_state]
+            best_internal_action_id_for_state = state_action_q_values.idxmax()
+            action = self.possible_actions_dict[best_internal_action_id_for_state]
         else:
             # choose random action
             action = np.random.choice(self.possible_actions)
@@ -93,14 +93,14 @@ class QLearningTableEnemyFocusedModel(Sc2Model):
         self.check_state_exist(s_)
         self.check_state_exist(s)
 
-        q_predict = self.q_table.ix[s, a]
+        q_predict = self.q_table.ix[s, a.internal_id]
         q_target = r + self.gamma * self.q_table.ix[s_, :].max()
 
         # update
-        self.q_table.ix[s, a] += self.lr * (q_target - q_predict)
+        self.q_table.ix[s, a.internal_id] += self.lr * (q_target - q_predict)
 
     def check_state_exist(self, state):
         if state not in self.q_table.index:
             # append new state to q table
-            self.q_table = self.q_table.append(
-                pd.Series([0] * len(self.possible_actions), index=self.q_table.columns, name=state))
+            ser = pd.Series([0] * len(self.possible_actions), index=self.q_table.columns, name=state)
+            self.q_table = self.q_table.append(ser)
