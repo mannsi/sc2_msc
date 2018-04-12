@@ -15,7 +15,7 @@ git pull
 echo "git pull done"
 
 # Source the correct python3 venv
-source .venv/bin/activate
+source /home/gudbjorn.einarsson/python_envs/pysc2_master/bin/activate
 
 # Run the training scrypt
 echo "About to run training script"
