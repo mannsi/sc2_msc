@@ -13,10 +13,9 @@ mount_script_server="mount_cloud_fs"
 tb_output_dir="$home_path/tb_output"
 bucket_name="machinelearningcloudbucket"
 python_run_script="$code_path/main2.py"
-python_script_params=${@:2}"
+python_script_params="${@:2}"
 virtual_env_location="/home/gudbjorn.einarsson/python_envs/pysc2_master"
 server_instance_name="instance-3"
-
 
 is_running=$(is_instance_running "$server_instance_name")
 
@@ -31,7 +30,7 @@ else
   echo "Instance already running"
 fi
 
-gcloud compute ssh gudbjorn.einarsson@"$server_instance_name" --command "bash $script_path/$train_script_server $tb_output_dir $python_run_script $python_script_params $code_path $virtual_env_location"
+gcloud compute ssh gudbjorn.einarsson@"$server_instance_name" --command "bash $script_path/$train_script_server $tb_output_dir $python_run_script $code_path $virtual_env_location $python_script_params"
 echo "Instance command finished"
 
 if [ "$turn_off_after" = "turnoff" ]; then
