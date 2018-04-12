@@ -14,8 +14,9 @@ from pysc2.lib import actions
 # noinspection PyUnresolvedReferences
 import maps as my_maps
 from agents import Sc2Agent
-from models import AlwayAttackScvModel, RandomModel, QLearningTableScvFocusedModel
+from models import AlwayAttackEnemyModel, RandomModel, QLearningTableEnemyFocusedModel
 from sc_action import ScAction
+import constants
 
 LOCK = threading.Lock()
 FLAGS = flags.FLAGS
@@ -30,12 +31,12 @@ flags.DEFINE_integer("snapshot_step", int(1e2), "Step for snapshot.")  # I use t
 flags.DEFINE_string("snapshot_path", "./snapshot/", "Path for snapshot.")
 flags.DEFINE_string("log_path", "./log/", "Path for log.")
 flags.DEFINE_string("device", "0", "Device for training.")
-flags.DEFINE_string("map", "DefeatScv", "Name of a map to use.")
 flags.DEFINE_bool("profile", False, "Whether to turn on code profiling.")
 flags.DEFINE_bool("trace", False, "Whether to trace the code execution.")
 flags.DEFINE_bool("save_replay", False, "Whether to save a replay at the end.")
 flags.DEFINE_integer("minimap_resolution", 84, "Resolution for minimap feature layers.")
 
+flags.DEFINE_string("map", "DefeatLing", "Name of a map to use.")
 flags.DEFINE_integer("max_steps", 10, "Total steps for training.")  # Num episodes
 flags.DEFINE_bool("render", False, "Whether to render with pygame.")
 flags.DEFINE_integer("screen_resolution", 84, "Resolution for screen feature layers.")
@@ -51,7 +52,7 @@ flags.DEFINE_bool("test_agent", True, "To run agent both in training and test mo
 
 
 FLAGS(sys.argv)
-BASE_LOG_PATH = os.path.join(FLAGS.log_path, FLAGS.agent, str(FLAGS.step_mul))
+BASE_LOG_PATH = os.path.join(FLAGS.log_path, FLAGS.agent, FLAGS.map, str(FLAGS.step_mul))
 NUM_EPISODES = FLAGS.max_steps
 
 # Have incremental log counter runs
@@ -122,19 +123,20 @@ def run(unused_argv):
     stopwatch.sw.enabled = FLAGS.profile or FLAGS.trace
     stopwatch.sw.trace = FLAGS.trace
 
-    sc_actions = [ScAction(actions.FUNCTIONS.no_op.id, False),
-                  ScAction(actions.FUNCTIONS.Move_screen.id, True),
-                  ScAction(actions.FUNCTIONS.Attack_screen.id, True)]
+    sc_actions = [ScAction(constants.NO_OP, actions.FUNCTIONS.no_op.id, False),
+                  ScAction(constants.MOVE_TO_ENEMY, actions.FUNCTIONS.Move_screen.id, True),
+                  ScAction(constants.MOVE_FROM_ENEMY, actions.FUNCTIONS.Move_screen.id, True),
+                  ScAction(constants.ATTACK_ENEMY, actions.FUNCTIONS.Attack_screen.id, True)]
 
     if FLAGS.agent == "always_attack":
-        model = AlwayAttackScvModel([ScAction(actions.FUNCTIONS.Attack_screen.id, True)])
+        model = AlwayAttackEnemyModel([ScAction(actions.FUNCTIONS.Attack_screen.id, True)])
     elif FLAGS.agent == "random":
         model = RandomModel(sc_actions)
     elif FLAGS.agent == "table":
-        model = QLearningTableScvFocusedModel(possible_actions=sc_actions,
-                                              learning_rate=FLAGS.learning_rate,
-                                              reward_decay=FLAGS.discount,
-                                              epsilon_greedy=0.9)
+        model = QLearningTableEnemyFocusedModel(possible_actions=sc_actions,
+                                                learning_rate=FLAGS.learning_rate,
+                                                reward_decay=FLAGS.discount,
+                                                epsilon_greedy=0.9)
     else:
         raise NotImplementedError()
 

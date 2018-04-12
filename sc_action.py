@@ -1,10 +1,10 @@
 from pysc2.lib import actions
-
-_NOT_QUEUED = [0]
+import constants
 
 
 class ScAction:
-    def __init__(self, action_id, has_location):
+    def __init__(self, internal_id, action_id, has_location):
+        self.internal_id = internal_id
         self.action_id = action_id
         self.has_location = has_location
 
@@ -15,7 +15,7 @@ class ScAction:
         :return: pysc2.lib.actions.FunctionCall object
         """
         if self.has_location:
-            return actions.FunctionCall(self.action_id, [_NOT_QUEUED, location])
+            return actions.FunctionCall(self.action_id, [constants.NOT_QUEUED, location])
         else:
             return actions.FunctionCall(self.action_id, [])
 

@@ -1,16 +1,8 @@
-import numpy as np
-import pandas as pd
 from pysc2.lib import features, actions
+from sc2_env_functions import get_own_unit_location, get_enemy_unit_location
 
-# Screen features
-_PLAYER_RELATIVE = features.SCREEN_FEATURES.player_relative.index
-
-# define constants about AI's world
-_UNITS_MINE = 1
-_UNITS_ENEMY = 4
-
-_NOT_QUEUED = [0]
-_SELECT_ALL = [0]
+from sc_action import ScAction
+import constants
 
 
 class Sc2Agent:
@@ -26,7 +18,27 @@ class Sc2Agent:
         :param obs: SC2Env state
         :return: SC2Action
         """
-        return self.model.select_action(obs)
+        if not self.marine_selected(obs):
+            return ScAction(actions.FUNCTIONS.no_op.id, has_location=False).get_function_call()
+        return self._act(obs)
+
+    def _act(self, obs):
+        sc_action = self.model.select_action(obs)
+
+        if sc_action.internal_id == constants.NO_OP:
+            action = sc_action.get_function_call()
+        elif sc_action.internal_id == constants.ATTACK_ENEMY:
+            location = get_enemy_unit_location(obs)
+            action = sc_action.get_function_call(location)
+        elif sc_action.internal_id == constants.MOVE_TO_ENEMY:
+            location = get_enemy_unit_location(obs)
+            action = sc_action.get_function_call(location)
+        elif sc_action.internal_id == constants.MOVE_FROM_ENEMY:
+            pass
+        else:
+            raise NotImplementedError("Unknown action ID received")
+
+        return action
 
     def observe(self, replay_buffer):
         """
@@ -46,3 +58,8 @@ class Sc2Agent:
     @training_mode.setter
     def training_mode(self, val):
         self.model.training_mode = val
+
+    @staticmethod
+    def marine_selected(obs):
+        # For some reason the environment looses selection of my marine
+        return actions.FUNCTIONS.Attack_screen.id in obs.observation['available_actions']
