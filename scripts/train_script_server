@@ -2,7 +2,9 @@
 
 tb_output="$1"
 python_training_file="$2"
-code_location="$3"
+python_file_params ="$3"
+code_location="$4"
+virtual_env_location="$5"
 
 #echo "From server script. tb_output: $tb_output"
 #echo "From server script. python_training_file: $python_training_file"
@@ -15,7 +17,7 @@ git pull
 echo "git pull done"
 
 # Source the correct python3 venv
-source /home/gudbjorn.einarsson/python_envs/pysc2_master/bin/activate
+source "$virtual_env_location"/bin/activate
 
 # Run the training scrypt
 echo "About to run training script"
