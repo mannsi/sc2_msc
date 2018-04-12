@@ -1,4 +1,6 @@
-from pysc2.lib import features, actions
+import numpy as np
+
+from pysc2.lib import actions
 from sc2_env_functions import get_own_unit_location, get_enemy_unit_location
 
 from sc_action import ScAction
@@ -19,7 +21,7 @@ class Sc2Agent:
         :return: SC2Action
         """
         if not self.marine_selected(obs):
-            return ScAction(actions.FUNCTIONS.no_op.id, has_location=False).get_function_call()
+            return ScAction(constants.NO_OP, actions.FUNCTIONS.no_op.id, has_location=False).get_function_call()
         return self._act(obs)
 
     def _act(self, obs):
@@ -34,7 +36,8 @@ class Sc2Agent:
             location = get_enemy_unit_location(obs)
             action = sc_action.get_function_call(location)
         elif sc_action.internal_id == constants.MOVE_FROM_ENEMY:
-            pass
+            location = self.get_location_away(obs)
+            action = sc_action.get_function_call(location)
         else:
             raise NotImplementedError("Unknown action ID received")
 
@@ -47,6 +50,25 @@ class Sc2Agent:
         """
         for s, a, r, s_ in replay_buffer:
             self.model.update(s, a, r, s_)
+
+    @staticmethod
+    def get_location_away(obs):
+        screen_x_max = obs.observation['screen'].shape[1] - 1
+        screen_y_max = obs.observation['screen'].shape[2] - 1
+
+        own_location = get_own_unit_location(obs)
+        enemy_location = get_enemy_unit_location(obs)
+
+        # Distance between units
+        dx = enemy_location[0] - own_location[0]
+        dy = enemy_location[1] - own_location[1]
+
+        # Move in opposite direction of enemy
+        away_location = (own_location[0] - dx, own_location[1] - dy)
+
+        # Makesure we don't move outside the screen
+        away_location = (np.clip(away_location[0], 0, screen_x_max), np.clip(away_location[1], 0, screen_y_max))
+        return away_location
 
     def obs_to_state(self, obs):
         return self.model.obs_to_state(obs)

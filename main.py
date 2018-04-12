@@ -129,7 +129,7 @@ def run(unused_argv):
                   ScAction(constants.ATTACK_ENEMY, actions.FUNCTIONS.Attack_screen.id, True)]
 
     if FLAGS.agent == "always_attack":
-        model = AlwayAttackEnemyModel([ScAction(actions.FUNCTIONS.Attack_screen.id, True)])
+        model = AlwayAttackEnemyModel([ScAction(constants.ATTACK_ENEMY, actions.FUNCTIONS.Attack_screen.id, True)])
     elif FLAGS.agent == "random":
         model = RandomModel(sc_actions)
     elif FLAGS.agent == "table":
