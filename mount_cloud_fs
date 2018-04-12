@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# Mount cloud storage as filesystem
+tb_output="$1"
+bucket_name="$2"
+
+# Create tb_output folder if it does not exist
+if [ ! -d "$tb_output" ]; then
+  # Control will enter here if $DIRECTORY doesn't exist.
+  echo "tb_output does not exist, creating"
+  mkdir "$tb_output"
+fi
+
+gcsfuse "$bucket_name" "$tb_output"

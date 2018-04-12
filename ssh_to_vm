@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# Connects to the given instance via ssh. Turns it on if it is off first.
+
+# Import common functions
+. common.sh
+
+server_instance_name="instance-3"
+is_running=$(is_instance_running "$server_instance_name")
+
+if [ "$is_running" = "not_running" ]; then
+  start_instance "$server_instance_name"
+  wait_for_ssh_to_be_ready "$server_instance_name"
+fi
+
+ip=$(get_instance_ip "$server_instance_name")
+ssh gudbjorn.einarsson@"$ip"
+
+

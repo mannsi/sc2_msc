@@ -1,0 +1,29 @@
+#!/bin/bash
+
+tb_output="$1"
+python_training_file="$2"
+code_location="$3"
+
+#echo "From server script. tb_output: $tb_output"
+#echo "From server script. python_training_file: $python_training_file"
+
+# Must be in correct folder to do git pull and other stuff
+cd "$code_location"
+
+# Update code
+git pull
+echo "git pull done"
+
+# Source the correct python3 venv
+source .venv/bin/activate
+
+# Run the training scrypt
+echo "About to run training script"
+python3 "$python_training_file" --tb_output "$tb_output"
+
+# Unmount the cloud fs and delete the output folder
+fusermount -u "$tb_output"
+rm -rf "$tb_output"
+
+
+
