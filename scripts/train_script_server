@@ -4,7 +4,7 @@ tb_output="$1"
 python_training_file="$2"
 code_location="$3"
 virtual_env_location="$4"
-agent="$5"
+python_params="${@:5}"
 
 #echo "From server script. tb_output: $tb_output"
 #echo "From server script. python_training_file: $python_training_file"
@@ -21,7 +21,7 @@ source "$virtual_env_location"/bin/activate
 
 # Run the training scrypt
 echo "About to run training script"
-python3 "$python_training_file" --log_path "$tb_output" --agent "$agent"
+python3 "$python_training_file" --log_path "$tb_output" $python_params
 
 # Unmount the cloud fs and delete the output folder
 fusermount -u "$tb_output"
