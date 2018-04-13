@@ -117,6 +117,7 @@ def log_episode(tb_writer, last_obs, episode_number):
     total_episode_rewards = last_obs.observation["score_cumulative"][0]
     reward_summary = tf.Summary(value=[tf.Summary.Value(tag='Episode rewards', simple_value=total_episode_rewards)])
     tb_writer.add_summary(reward_summary, episode_number)
+    tb_writer.flush()
 
 
 def run(unused_argv):
@@ -146,6 +147,9 @@ def run(unused_argv):
     tb_testing_writer = tf.summary.FileWriter(TEST_LOG)
 
     run_agent(agent, FLAGS.map, FLAGS.render, tb_training_writer, tb_testing_writer)
+
+    tb_training_writer.close()
+    tb_testing_writer.close()
 
 
 if __name__ == "__main__":
