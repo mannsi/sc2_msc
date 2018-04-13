@@ -24,8 +24,8 @@ echo "About to run training script"
 python3 "$python_training_file" --log_path "$tb_output" $python_params
 
 # Unmount the cloud fs and delete the output folder
-fusermount -u "$tb_output"
-rm -rf "$tb_output"
+#fusermount -u "$tb_output"
+#rm -rf "$tb_output"
 
 
 
