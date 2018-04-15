@@ -3,7 +3,6 @@ import sys
 import threading
 import time
 import random
-import pickle
 
 import tensorflow as tf
 from absl import app
@@ -123,17 +122,6 @@ def run_agent(agent, map_name, visualize, tb_training_writer, tb_testing_writer)
     print("Took %.3f seconds" % elapsed_time)
 
 
-def run_replay(env):
-    pass
-    # TODO
-    # env.reset()
-    # with open(FLAGS.replay_path, 'rb') as f:
-    #     replay_actions = pickle.load(f)
-    #
-    # for action in replay_actions:
-    #     env.step([action.get_function_call()])
-
-
 def log_episode(tb_writer, last_obs, episode_number):
     total_episode_rewards = last_obs.observation["score_cumulative"][0]
     reward_summary = tf.Summary(value=[tf.Summary.Value(tag='Episode rewards', simple_value=total_episode_rewards)])
@@ -174,8 +162,5 @@ def run(unused_argv):
 
 
 if __name__ == "__main__":
-    import pysc2.bin.play
-
     # Run the agent
-    app.run(pysc2.bin.play.main)
-    # app.run(run)
+    app.run(run)
