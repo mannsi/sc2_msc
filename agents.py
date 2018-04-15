@@ -1,3 +1,4 @@
+import pickle
 import numpy as np
 
 from pysc2.lib import actions
@@ -50,6 +51,16 @@ class Sc2Agent:
         """
         for s, a, r, s_ in replay_buffer:
             self.model.update(s, a, r, s_)
+
+    def save(self, save_file='agent_file'):
+        with open(save_file, 'wb') as f:
+            pickle.dump(self.__dict__, f)
+
+    @staticmethod
+    def load(save_file='agent_file'):
+        with open(save_file, 'rb') as f:
+            tmp_dict = pickle.load(f)
+        return tmp_dict
 
     @staticmethod
     def get_location_away(obs):
