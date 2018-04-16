@@ -34,7 +34,8 @@ class Sc2Model:
         enemy_loc = np.array(get_enemy_unit_location(obs))
         dist = np.linalg.norm(marine_loc - enemy_loc)
         rounded_dist = int(round(dist))
-        return str(rounded_dist)
+        return rounded_dist
+        # return str(rounded_dist)
 
     @property
     def training_mode(self):
@@ -103,6 +104,6 @@ class QLearningTableEnemyFocusedModel(Sc2Model):
 
     def check_state_exist(self, state):
         if state not in self.q_table.index:
-            # append new state to q table
+            # append new state to q table.
             ser = pd.Series([0] * len(self.possible_actions), index=self.q_table.columns, name=state)
             self.q_table = self.q_table.append(ser)

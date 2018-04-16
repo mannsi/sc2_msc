@@ -47,9 +47,9 @@ class Sc2Agent:
     def observe(self, replay_buffer):
         """
         Update the agent
-        :param replay_buffer: list of tuples containing (state, action, reward, next_state)
+        :param replay_buffer: list of tuples containing ((state, action, reward, next_state), step_num)
         """
-        for s, a, r, s_ in replay_buffer:
+        for ((s, a, r, s_), step_num) in replay_buffer:
             self.model.update(s, a, r, s_)
 
     def save(self, save_file='agent_file'):
