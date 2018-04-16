@@ -33,7 +33,8 @@ class Sc2Model:
         marine_loc = np.array(get_own_unit_location(obs))
         enemy_loc = np.array(get_enemy_unit_location(obs))
         dist = np.linalg.norm(marine_loc - enemy_loc)
-        return str(dist)
+        rounded_dist = int(round(dist))
+        return str(rounded_dist)
 
     @property
     def training_mode(self):
