@@ -28,7 +28,7 @@ flags.DEFINE_float("discount", 0.99, "Discount rate for future rewards.")
 flags.DEFINE_enum("agent_race", None, sc2_env.races.keys(), "Agent's race.")
 flags.DEFINE_enum("bot_race", None, sc2_env.races.keys(), "Bot's race.")
 flags.DEFINE_enum("difficulty", None, sc2_env.difficulties.keys(), "Bot's strength.")
-flags.DEFINE_integer("snapshot_step", 1, "Step for snapshot.")  # I use this to run the agent without training
+flags.DEFINE_integer("snapshot_step", 1000, "Step for snapshot.")  # I use this to run the agent without training
 flags.DEFINE_string("snapshot_path", "./snapshot/", "Path for snapshot.")
 flags.DEFINE_string("log_path", "/home/mannsi/code/sc2_msc/log/", "Path for log.")
 flags.DEFINE_string("device", "0", "Device for training.")
@@ -40,13 +40,15 @@ flags.DEFINE_string("map", "DefeatLing", "Name of a map to use.")
 flags.DEFINE_integer("max_steps", 20, "Total steps for training.")  # Num episodes
 flags.DEFINE_bool("render", False, "Whether to render with pygame.")
 flags.DEFINE_integer("screen_resolution", 84, "Resolution for screen feature layers.")
-flags.DEFINE_integer("step_mul", 1, "Game steps per agent step.")
-# flags.DEFINE_integer("step_mul", 8, "Game steps per agent step.")
+# flags.DEFINE_integer("step_mul", 1, "Game steps per agent step.")
+flags.DEFINE_integer("step_mul", 8, "Game steps per agent step.")
 flags.DEFINE_string("agent", "always_attack", "Which agent to run.")
 flags.DEFINE_string("net", "atari", "atari or fcn.")
 
+
 flags.DEFINE_integer("episodes_between_updates", 1, "How many episodes to run before updating agent")
 flags.DEFINE_bool("randomize_replay_buffer", True, "Randomize the replay buffer before updating an agent")
+flags.DEFINE_bool("save_replays", False, "If replays should be saved")
 flags.DEFINE_bool("test_agent", True, "To run agent both in training and test mode")
 flags.DEFINE_string("run_comment", "Normal", "A comment string to distinguish the run.")
 
@@ -72,8 +74,14 @@ while True:
             os.makedirs(TEST_LOG)
         break
 
-replay_dir = os.path.join(run_log_path, 'Replays')
-os.makedirs(replay_dir)
+if FLAGS.save_replays:
+    replay_dir = os.path.join(run_log_path, 'Replays')
+    os.makedirs(replay_dir)
+    save_replays_every_num_episodes = FLAGS.snapshot_step
+else:
+    replay_dir = None
+    save_replays_every_num_episodes = 0
+
 
 
 def run_agent(agent, map_name, visualize, tb_training_writer, tb_testing_writer):
@@ -85,7 +93,7 @@ def run_agent(agent, map_name, visualize, tb_training_writer, tb_testing_writer)
             minimap_size_px=(FLAGS.minimap_resolution, FLAGS.minimap_resolution),
             visualize=visualize,
             replay_dir=replay_dir,
-            save_replay_episodes=FLAGS.snapshot_step) as env:
+            save_replay_episodes=save_replays_every_num_episodes) as env:
         replay_buffer = []
         for episode_number in range(1, NUM_EPISODES + 1):
             obs = env.reset()[0]  # Initial obs from env
@@ -137,10 +145,10 @@ def run(unused_argv):
     stopwatch.sw.trace = FLAGS.trace
 
     sc_actions = [
-                  # Sc2Action(constants.NO_OP, actions.FUNCTIONS.no_op.id, False, False),
+                  Sc2Action(constants.NO_OP, actions.FUNCTIONS.no_op.id, False, False),
                   Sc2Action(constants.MOVE_TO_ENEMY, actions.FUNCTIONS.Move_screen.id, True),
-                  # Sc2Action(constants.MOVE_FROM_ENEMY, actions.FUNCTIONS.Move_screen.id, True),
-                  # Sc2Action(constants.ATTACK_ENEMY, actions.FUNCTIONS.Attack_screen.id, True)
+                  Sc2Action(constants.MOVE_FROM_ENEMY, actions.FUNCTIONS.Move_screen.id, True),
+                  Sc2Action(constants.ATTACK_ENEMY, actions.FUNCTIONS.Attack_screen.id, True)
                   ]
 
     if FLAGS.agent == "always_attack":
