@@ -99,7 +99,7 @@ def run_agent(agent, map_name, visualize, tb_training_writer, tb_testing_writer)
                 replay_buffer.append((s, a, r, s_))
 
                 if obs.last():
-                    replay_buffer_df = pd.DataFrame.from_records(replay_buffer, columns=['state', 'action', 'reward', 'next_state'])
+                    # replay_buffer_df = pd.DataFrame.from_records(replay_buffer, columns=['state', 'action', 'reward', 'next_state'])
 
                     should_update_agent = episode_number % FLAGS.episodes_between_updates == 0
                     if should_update_agent:
