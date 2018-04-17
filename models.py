@@ -62,6 +62,19 @@ class RandomModel(Sc2Model):
         pass
 
 
+class MoveToEnemyThenStopModel(Sc2Model):
+    def select_action(self, obs):
+        if obs.first():
+            move_action = self.possible_actions[0]
+            return move_action
+        else:
+            no_op = self.possible_actions[1]
+            return no_op
+
+    def update(self, s, a, r, s_):
+        pass
+
+
 class QLearningTableEnemyFocusedModel(Sc2Model):
     """ Q learning table model where location is always on SCV """
     def __init__(self, possible_actions, learning_rate=0.01, reward_decay=0.9, epsilon_greedy=0.9):

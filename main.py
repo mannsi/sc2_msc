@@ -5,6 +5,7 @@ import time
 import random
 
 import tensorflow as tf
+import pandas as pd
 from absl import app
 from absl import flags
 from pysc2.env import sc2_env
@@ -14,8 +15,8 @@ from pysc2.lib import actions
 # noinspection PyUnresolvedReferences
 import maps as my_maps
 from agents import Sc2Agent
-from models import AlwayAttackEnemyModel, RandomModel, QLearningTableEnemyFocusedModel
-from sc_action import ScAction
+from models import AlwayAttackEnemyModel, RandomModel, QLearningTableEnemyFocusedModel, MoveToEnemyThenStopModel
+from sc2_action import Sc2Action
 import constants
 
 LOCK = threading.Lock()
@@ -39,7 +40,8 @@ flags.DEFINE_string("map", "DefeatLing", "Name of a map to use.")
 flags.DEFINE_integer("max_steps", 20, "Total steps for training.")  # Num episodes
 flags.DEFINE_bool("render", False, "Whether to render with pygame.")
 flags.DEFINE_integer("screen_resolution", 84, "Resolution for screen feature layers.")
-flags.DEFINE_integer("step_mul", 8, "Game steps per agent step.")
+flags.DEFINE_integer("step_mul", 1, "Game steps per agent step.")
+# flags.DEFINE_integer("step_mul", 8, "Game steps per agent step.")
 flags.DEFINE_string("agent", "always_attack", "Which agent to run.")
 flags.DEFINE_string("net", "atari", "atari or fcn.")
 
@@ -87,16 +89,18 @@ def run_agent(agent, map_name, visualize, tb_training_writer, tb_testing_writer)
         replay_buffer = []
         for episode_number in range(1, NUM_EPISODES + 1):
             obs = env.reset()[0]  # Initial obs from env
-            step_num = 0
+            obses = []
             while True:
                 prev_obs = obs
                 action = agent.act(obs)
                 obs = env.step([action.get_function_call()])[0]
-                step_num += 1
+                # obses.append(obs)
                 s, a, r, s_ = agent.obs_to_state(prev_obs), action, obs.reward, agent.obs_to_state(obs)
-                replay_buffer.append(((s, a, r, s_), step_num))
+                replay_buffer.append((s, a, r, s_))
 
                 if obs.last():
+                    replay_buffer_df = pd.DataFrame.from_records(replay_buffer, columns=['state', 'action', 'reward', 'next_state'])
+
                     should_update_agent = episode_number % FLAGS.episodes_between_updates == 0
                     if should_update_agent:
                         if FLAGS.randomize_replay_buffer:
@@ -132,13 +136,22 @@ def run(unused_argv):
     stopwatch.sw.enabled = FLAGS.profile or FLAGS.trace
     stopwatch.sw.trace = FLAGS.trace
 
-    sc_actions = [ScAction(constants.NO_OP, actions.FUNCTIONS.no_op.id, False),
-                  ScAction(constants.MOVE_TO_ENEMY, actions.FUNCTIONS.Move_screen.id, True),
-                  ScAction(constants.MOVE_FROM_ENEMY, actions.FUNCTIONS.Move_screen.id, True),
-                  ScAction(constants.ATTACK_ENEMY, actions.FUNCTIONS.Attack_screen.id, True)]
+    sc_actions = [
+                  # Sc2Action(constants.NO_OP, actions.FUNCTIONS.no_op.id, False, False),
+                  Sc2Action(constants.MOVE_TO_ENEMY, actions.FUNCTIONS.Move_screen.id, True),
+                  # Sc2Action(constants.MOVE_FROM_ENEMY, actions.FUNCTIONS.Move_screen.id, True),
+                  # Sc2Action(constants.ATTACK_ENEMY, actions.FUNCTIONS.Attack_screen.id, True)
+                  ]
 
     if FLAGS.agent == "always_attack":
-        model = AlwayAttackEnemyModel([ScAction(constants.ATTACK_ENEMY, actions.FUNCTIONS.Attack_screen.id, True)])
+        model = AlwayAttackEnemyModel([Sc2Action(constants.ATTACK_ENEMY, actions.FUNCTIONS.Attack_screen.id, True)])
+        # model = AlwayAttackEnemyModel([Sc2Action(constants.MOVE_TO_ENEMY, actions.FUNCTIONS.Move_screen.id, True)])
+    elif FLAGS.agent == "move_then_stop":
+        sc_actions = [
+            Sc2Action(constants.MOVE_TO_ENEMY, actions.FUNCTIONS.Move_screen.id, True),
+            Sc2Action(constants.NO_OP, actions.FUNCTIONS.no_op.id, False, False),
+        ]
+        model = MoveToEnemyThenStopModel(sc_actions)
     elif FLAGS.agent == "random":
         model = RandomModel(sc_actions)
     elif FLAGS.agent == "table":

@@ -23,6 +23,16 @@ def get_enemy_unit_location(obs):
     return enemy_unit_loc_x.mean(), enemy_unit_loc_y.mean()
 
 
+def get_enemy_width_and_height(obs):
+    """
+    Returns (x_min, x_max, y_min, y_max)
+    :param obs:
+    :return:
+    """
+    enemy_unit_loc_y, enemy_unit_loc_x = get_enemy_unit_locations(obs)
+    return enemy_unit_loc_x.min(), enemy_unit_loc_x.max(), enemy_unit_loc_y.min(), enemy_unit_loc_y.max()
+
+
 def get_enemy_unit_locations(obs):
     """ Enemy unit locations as a tuple of (np_array_of_Y_locations, np_array_of_X_locations)"""
     return (get_player_relative_view(obs) == constants.UNITS_ENEMY).nonzero()
