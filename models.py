@@ -82,7 +82,6 @@ class QLearningTableEnemyFocusedModel(Sc2Model):
         self.possible_actions_dict = {a.internal_id: a for a in possible_actions}
         self.lr = learning_rate
         self.gamma = reward_decay
-        self.init_epsilon = epsilon_greedy
         self.epsilon = epsilon_greedy
         self.q_table = pd.DataFrame(columns=self.possible_actions_dict.keys(), dtype=np.float64)
 

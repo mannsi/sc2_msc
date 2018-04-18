@@ -28,7 +28,7 @@ flags.DEFINE_float("discount", 0.99, "Discount rate for future rewards.")
 flags.DEFINE_enum("agent_race", None, sc2_env.races.keys(), "Agent's race.")
 flags.DEFINE_enum("bot_race", None, sc2_env.races.keys(), "Bot's race.")
 flags.DEFINE_enum("difficulty", None, sc2_env.difficulties.keys(), "Bot's strength.")
-flags.DEFINE_integer("snapshot_step", 1000, "Step for snapshot.")  # I use this to run the agent without training
+flags.DEFINE_integer("snapshot_step", 10, "Step for snapshot.")  # I use this to run the agent without training
 flags.DEFINE_string("snapshot_path", "./snapshot/", "Path for snapshot.")
 flags.DEFINE_string("log_path", "/home/mannsi/code/sc2_msc/log/", "Path for log.")
 flags.DEFINE_string("device", "0", "Device for training.")
@@ -83,6 +83,9 @@ else:
     save_replays_every_num_episodes = 0
 
 
+agent_save_files_dir = os.path.join(run_log_path, 'AgentFiles')
+os.makedirs(agent_save_files_dir)
+
 
 def run_agent(agent, map_name, visualize, tb_training_writer, tb_testing_writer):
     start_time = time.time()
@@ -97,12 +100,10 @@ def run_agent(agent, map_name, visualize, tb_training_writer, tb_testing_writer)
         replay_buffer = []
         for episode_number in range(1, NUM_EPISODES + 1):
             obs = env.reset()[0]  # Initial obs from env
-            obses = []
             while True:
                 prev_obs = obs
                 action = agent.act(obs)
                 obs = env.step([action.get_function_call()])[0]
-                # obses.append(obs)
                 s, a, r, s_ = agent.obs_to_state(prev_obs), action, obs.reward, agent.obs_to_state(obs)
                 replay_buffer.append((s, a, r, s_))
 
@@ -120,6 +121,7 @@ def run_agent(agent, map_name, visualize, tb_training_writer, tb_testing_writer)
                         log_episode(tb_training_writer, obs, episode_number)
                     else:
                         log_episode(tb_testing_writer, obs, episode_number)
+                        agent.save(os.path.join(agent_save_files_dir, str(episode_number)))
 
                     should_test_agent = FLAGS.test_agent and episode_number % FLAGS.snapshot_step == 0
                     if should_test_agent:
@@ -170,7 +172,7 @@ def run(unused_argv):
     else:
         raise NotImplementedError()
 
-    agent = Sc2Agent(model)
+    agent = Sc2Agent(model, NUM_EPISODES)
 
     tb_training_writer = tf.summary.FileWriter(TRAIN_LOG)
     tb_testing_writer = tf.summary.FileWriter(TEST_LOG)
