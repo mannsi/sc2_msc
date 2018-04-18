@@ -95,20 +95,29 @@ class QLearningTableEnemyFocusedModel(Sc2Model):
         self.episode_num += 1
 
         if self.should_decay_lr:
-            self.lr = self.lr * (self.total_episodes - self.episode_num) / self.episode_num
+            self.lr = self.lr * (self.total_episodes - self.episode_num) / self.total_episodes
 
         for s, a, r, s_ in replay_buffer:
-            self.check_state_exist(s_)
             self.check_state_exist(s)
+            next_state_is_final_state = s_ is None
+            if not next_state_is_final_state:
+                self.check_state_exist(s_)
 
             q_predict = self.q_table.ix[s, a.internal_id]
-            q_target = r + self.gamma * self.q_table.ix[s_, :].max()
+
+            if not next_state_is_final_state:
+                q_target = r + self.gamma * self.q_table.ix[s_, :].max()
+            else:
+                q_target = r
 
             # update
             self.q_table.ix[s, a.internal_id] += self.lr * (q_target - q_predict)
 
     def check_state_exist(self, state):
-        if state not in self.q_table.index:
-            # append new state to q table.
-            ser = pd.Series([0] * len(self.possible_actions), index=self.q_table.columns, name=state)
-            self.q_table = self.q_table.append(ser)
+        try:
+            if state not in self.q_table.index:
+                # append new state to q table.
+                ser = pd.Series([0] * len(self.possible_actions), index=self.q_table.columns, name=state)
+                self.q_table = self.q_table.append(ser)
+        except Exception as ex:
+            a = 4
