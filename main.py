@@ -6,6 +6,7 @@ import random
 
 import tensorflow as tf
 import pandas as pd
+import numpy as np
 from absl import app
 from absl import flags
 from pysc2.env import sc2_env
@@ -15,7 +16,7 @@ from pysc2.lib import actions
 # noinspection PyUnresolvedReferences
 import maps as my_maps
 from agents import Sc2Agent
-from models import AlwayAttackEnemyModel, RandomModel, QLearningTableEnemyFocusedModel, MoveToEnemyThenStopModel
+from models import AlwayAttackEnemyModel, RandomModel, QLearningTableEnemyFocusedModel
 from sc2_action import Sc2Action
 import constants
 
@@ -30,13 +31,13 @@ flags.DEFINE_enum("bot_race", None, sc2_env.races.keys(), "Bot's race.")
 flags.DEFINE_enum("difficulty", None, sc2_env.difficulties.keys(), "Bot's strength.")
 flags.DEFINE_integer("snapshot_step", 10, "Step for snapshot.")  # I use this to run the agent without training
 flags.DEFINE_string("snapshot_path", "./snapshot/", "Path for snapshot.")
-flags.DEFINE_string("log_path", "/home/mannsi/code/sc2_msc/log/", "Path for log.")
+flags.DEFINE_string("log_path", "/home/mannsi/Repos/sc2_msc/log/", "Path for log.")
 flags.DEFINE_string("device", "0", "Device for training.")
 flags.DEFINE_bool("profile", False, "Whether to turn on code profiling.")
 flags.DEFINE_bool("trace", False, "Whether to trace the code execution.")
 flags.DEFINE_integer("minimap_resolution", 84, "Resolution for minimap feature layers.")
 
-flags.DEFINE_string("map", "DefeatLing", "Name of a map to use.")
+flags.DEFINE_string("map", "DefeatRoaches", "Name of a map to use.")
 flags.DEFINE_integer("max_steps", 20, "Total steps for training.")  # Num episodes
 flags.DEFINE_bool("render", False, "Whether to render with pygame.")
 flags.DEFINE_integer("screen_resolution", 84, "Resolution for screen feature layers.")
@@ -53,6 +54,10 @@ flags.DEFINE_bool("test_agent", True, "To run agent both in training and test mo
 flags.DEFINE_string("run_comment", "Normal", "A comment string to distinguish the run.")
 
 FLAGS(sys.argv)
+
+random.seed(7)
+np.random.seed(7)
+
 BASE_LOG_PATH = os.path.join(FLAGS.log_path, FLAGS.agent, FLAGS.map, str(FLAGS.step_mul))
 
 if FLAGS.run_comment is not "":
@@ -104,11 +109,11 @@ def run_agent(agent, map_name, visualize, tb_training_writer, tb_testing_writer)
                 prev_obs = obs
                 action = agent.act(obs)
                 obs = env.step([action.get_function_call()])[0]
-                s, a, r, s_ = agent.obs_to_state(prev_obs), action, obs.reward, agent.obs_to_state(obs)
+                s, a, r, s_ = agent.obs_to_state(prev_obs), action, obs.reward, agent.obs_to_state(obs) if not obs.last() else None
                 replay_buffer.append((s, a, r, s_))
 
                 if obs.last():
-                    # replay_buffer_df = pd.DataFrame.from_records(replay_buffer, columns=['state', 'action', 'reward', 'next_state'])
+                    replay_buffer_df = pd.DataFrame.from_records(replay_buffer, columns=['state', 'action', 'reward', 'next_state'])
 
                     should_update_agent = episode_number % FLAGS.episodes_between_updates == 0
                     if should_update_agent:
@@ -156,31 +161,27 @@ def run(unused_argv):
     if FLAGS.agent == "always_attack":
         model = AlwayAttackEnemyModel([Sc2Action(constants.ATTACK_ENEMY, actions.FUNCTIONS.Attack_screen.id, True)])
         # model = AlwayAttackEnemyModel([Sc2Action(constants.MOVE_TO_ENEMY, actions.FUNCTIONS.Move_screen.id, True)])
-    elif FLAGS.agent == "move_then_stop":
-        sc_actions = [
-            Sc2Action(constants.MOVE_TO_ENEMY, actions.FUNCTIONS.Move_screen.id, True),
-            Sc2Action(constants.NO_OP, actions.FUNCTIONS.no_op.id, False, False),
-        ]
-        model = MoveToEnemyThenStopModel(sc_actions)
     elif FLAGS.agent == "random":
         model = RandomModel(sc_actions)
     elif FLAGS.agent == "table":
         model = QLearningTableEnemyFocusedModel(possible_actions=sc_actions,
                                                 learning_rate=FLAGS.learning_rate,
                                                 reward_decay=FLAGS.discount,
-                                                epsilon_greedy=0.9)
+                                                epsilon_greedy=0.9,
+                                                total_episodes=NUM_EPISODES,
+                                                should_decay_lr=True)
     else:
         raise NotImplementedError()
 
-    agent = Sc2Agent(model, NUM_EPISODES)
+    agent = Sc2Agent(model)
 
     tb_training_writer = tf.summary.FileWriter(TRAIN_LOG)
-    tb_testing_writer = tf.summary.FileWriter(TEST_LOG)
+    if FLAGS.test_agent:
+        tb_testing_writer = tf.summary.FileWriter(TEST_LOG)
+    else:
+        tb_testing_writer = None
 
     run_agent(agent, FLAGS.map, FLAGS.render, tb_training_writer, tb_testing_writer)
-
-    tb_training_writer.close()
-    tb_testing_writer.close()
 
 
 if __name__ == "__main__":

@@ -9,14 +9,11 @@ import constants
 
 
 class Sc2Agent:
-    def __init__(self, model, episodes):
+    def __init__(self, model):
         """
         :param model: Sc2Model object
         """
         self.model = model
-        self.episodes = episodes
-        self.current_episode_num = 0
-        self.intial_lr = model.lr
 
     def act(self, obs):
         """
@@ -53,13 +50,7 @@ class Sc2Agent:
         Update the agent
         :param replay_buffer: list of tuples containing (state, action, reward, next_state)
         """
-
-        # Decay model lr
-        self.current_episode_num += 1
-        self.model.lr = self.intial_lr * (self.episodes - self.current_episode_num)/self.episodes
-
-        for s, a, r, s_ in replay_buffer:
-            self.model.update(s, a, r, s_)
+        self.model.update(replay_buffer)
 
     def save(self, save_file='agent_file'):
         with open(save_file, 'wb') as f:

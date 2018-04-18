@@ -21,7 +21,12 @@ class Sc2Model:
                 """
         raise NotImplementedError("Please Implement this method")
 
-    def update(self, s, a, r, s_):
+    def update(self, replay_buffer):
+        """
+        Update the model
+        :param replay_buffer: iterable of (state, action, reward, next_state) tuples
+        :return:
+        """
         raise NotImplementedError("Please Implement this method")
 
     def obs_to_state(self, obs):
@@ -46,44 +51,26 @@ class Sc2Model:
         self._training_mode = val
 
 
-class AlwayAttackEnemyModel(Sc2Model):
-    def select_action(self, obs):
-        return self.possible_actions[0]
-
-    def update(self, s, a, r, s_):
-        pass
-
-
 class RandomModel(Sc2Model):
     def select_action(self, obs):
         return np.random.choice(self.possible_actions)
 
-    def update(self, s, a, r, s_):
-        pass
-
-
-class MoveToEnemyThenStopModel(Sc2Model):
-    def select_action(self, obs):
-        if obs.first():
-            move_action = self.possible_actions[0]
-            return move_action
-        else:
-            no_op = self.possible_actions[1]
-            return no_op
-
-    def update(self, s, a, r, s_):
+    def update(self, replay_buffer):
         pass
 
 
 class QLearningTableEnemyFocusedModel(Sc2Model):
     """ Q learning table model where location is always on SCV """
-    def __init__(self, possible_actions, learning_rate=0.01, reward_decay=0.9, epsilon_greedy=0.9):
+    def __init__(self, possible_actions, learning_rate, reward_decay, epsilon_greedy, total_episodes, should_decay_lr):
         super().__init__(possible_actions)
         self.possible_actions_dict = {a.internal_id: a for a in possible_actions}
         self.lr = learning_rate
         self.gamma = reward_decay
         self.epsilon = epsilon_greedy
         self.q_table = pd.DataFrame(columns=self.possible_actions_dict.keys(), dtype=np.float64)
+        self.total_episodes = total_episodes
+        self.should_decay_lr = should_decay_lr
+        self.episode_num = 0
 
     def select_action(self, obs):
         state = self.obs_to_state(obs)
@@ -104,15 +91,21 @@ class QLearningTableEnemyFocusedModel(Sc2Model):
 
         return action
 
-    def update(self, s, a, r, s_):
-        self.check_state_exist(s_)
-        self.check_state_exist(s)
+    def update(self, replay_buffer):
+        self.episode_num += 1
 
-        q_predict = self.q_table.ix[s, a.internal_id]
-        q_target = r + self.gamma * self.q_table.ix[s_, :].max()
+        if self.should_decay_lr:
+            self.lr = self.lr * (self.total_episodes - self.episode_num) / self.episode_num
 
-        # update
-        self.q_table.ix[s, a.internal_id] += self.lr * (q_target - q_predict)
+        for s, a, r, s_ in replay_buffer:
+            self.check_state_exist(s_)
+            self.check_state_exist(s)
+
+            q_predict = self.q_table.ix[s, a.internal_id]
+            q_target = r + self.gamma * self.q_table.ix[s_, :].max()
+
+            # update
+            self.q_table.ix[s, a.internal_id] += self.lr * (q_target - q_predict)
 
     def check_state_exist(self, state):
         if state not in self.q_table.index:
