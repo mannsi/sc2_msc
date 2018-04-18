@@ -16,7 +16,7 @@ from pysc2.lib import actions
 # noinspection PyUnresolvedReferences
 import maps as my_maps
 from agents import Sc2Agent
-from models import AlwayAttackEnemyModel, RandomModel, QLearningTableEnemyFocusedModel
+from models import RandomModel, QLearningTableEnemyFocusedModel
 from sc2_action import Sc2Action
 import constants
 
@@ -159,7 +159,7 @@ def run(unused_argv):
                   ]
 
     if FLAGS.agent == "always_attack":
-        model = AlwayAttackEnemyModel([Sc2Action(constants.ATTACK_ENEMY, actions.FUNCTIONS.Attack_screen.id, True)])
+        model = RandomModel([Sc2Action(constants.ATTACK_ENEMY, actions.FUNCTIONS.Attack_screen.id, True)])
         # model = AlwayAttackEnemyModel([Sc2Action(constants.MOVE_TO_ENEMY, actions.FUNCTIONS.Move_screen.id, True)])
     elif FLAGS.agent == "random":
         model = RandomModel(sc_actions)
