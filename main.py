@@ -136,7 +136,7 @@ def run(unused_argv):
                                                 reward_decay=FLAGS.discount,
                                                 epsilon_greedy=0.9,
                                                 total_episodes=NUM_EPISODES,
-                                                should_decay_lr=True)
+                                                should_decay_lr=FLAGS.decay_lr)
     else:
         raise NotImplementedError()
 

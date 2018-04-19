@@ -6,10 +6,11 @@ from sc2_env_functions import get_own_unit_location, get_enemy_unit_location
 
 
 class Sc2Model:
-    def __init__(self, possible_actions):
+    def __init__(self, possible_actions, decay_lr):
         """
         :param possible_actions: list of ScAction objects
         """
+        self.decay_lr = decay_lr
         self._training_mode = True
         self.possible_actions = possible_actions
 
@@ -52,6 +53,9 @@ class Sc2Model:
 
 
 class RandomModel(Sc2Model):
+    def __init__(self, possible_actions):
+        super().__init__(possible_actions, False)
+
     def select_action(self, obs):
         return np.random.choice(self.possible_actions)
 
@@ -62,7 +66,7 @@ class RandomModel(Sc2Model):
 class QLearningTableEnemyFocusedModel(Sc2Model):
     """ Q learning table model where location is always on SCV """
     def __init__(self, possible_actions, learning_rate, reward_decay, epsilon_greedy, total_episodes, should_decay_lr):
-        super().__init__(possible_actions)
+        super().__init__(possible_actions, should_decay_lr)
         self.possible_actions_dict = {a.internal_id: a for a in possible_actions}
         self.lr = learning_rate
         self.gamma = reward_decay

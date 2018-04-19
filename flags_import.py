@@ -35,6 +35,8 @@ flags.DEFINE_bool("randomize_replay_buffer", True, "Randomize the replay buffer 
 flags.DEFINE_bool("save_replays", False, "If replays should be saved")
 flags.DEFINE_bool("test_agent", True, "To run agent both in training and test mode")
 flags.DEFINE_string("run_comment", "Normal", "A comment string to distinguish the run.")
+flags.DEFINE_bool("decay_lr", True, "If learning rate should be decayed or not")
+
 
 FLAGS(sys.argv)
 
