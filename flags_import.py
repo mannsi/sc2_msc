@@ -1,5 +1,7 @@
 import sys
+import os
 from absl import flags
+from pathlib import Path
 
 
 FLAGS = flags.FLAGS
@@ -12,7 +14,7 @@ flags.DEFINE_float("discount", 0.99, "Discount rate for future rewards.")
 # flags.DEFINE_enum("difficulty", None, sc2_env.difficulties.keys(), "Bot's strength.")
 flags.DEFINE_integer("snapshot_step", 10, "Step for snapshot.")  # I use this to run the agent without training
 flags.DEFINE_string("snapshot_path", "./snapshot/", "Path for snapshot.")
-flags.DEFINE_string("log_path", "/home/mannsi/Repos/sc2_msc/log/", "Path for log.")
+flags.DEFINE_string("log_path", os.path.join(Path.home(), "tb_output"), "Path for log.")
 flags.DEFINE_string("device", "0", "Device for training.")
 flags.DEFINE_bool("profile", False, "Whether to turn on code profiling.")
 flags.DEFINE_bool("trace", False, "Whether to trace the code execution.")
