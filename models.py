@@ -1,8 +1,5 @@
 import numpy as np
 import pandas as pd
-import pickle
-
-from sc2_env_functions import get_own_unit_location, get_enemy_unit_location
 
 
 class Sc2Model:
@@ -29,19 +26,6 @@ class Sc2Model:
         :return:
         """
         raise NotImplementedError("Please Implement this method")
-
-    def obs_to_state(self, obs):
-        """
-        Convert sc2 obs object to a distance_to_enemy state.
-        :param obs: SC2Env observation
-        :return:
-        """
-        marine_loc = np.array(get_own_unit_location(obs))
-        enemy_loc = np.array(get_enemy_unit_location(obs))
-        dist = np.linalg.norm(marine_loc - enemy_loc)
-        rounded_dist = int(round(dist))
-        return rounded_dist
-        # return str(rounded_dist)
 
     @property
     def training_mode(self):
@@ -76,8 +60,7 @@ class QLearningTableEnemyFocusedModel(Sc2Model):
         self.should_decay_lr = should_decay_lr
         self.episode_num = 0
 
-    def select_action(self, obs):
-        state = self.obs_to_state(obs)
+    def select_action(self, state):
         self.check_state_exist(state)
 
         if not self.training_mode or np.random.uniform() < self.epsilon:
@@ -118,10 +101,7 @@ class QLearningTableEnemyFocusedModel(Sc2Model):
             self.q_table.ix[s, a.internal_id] += self.lr * (q_target - q_predict)
 
     def check_state_exist(self, state):
-        try:
-            if state not in self.q_table.index:
-                # append new state to q table.
-                ser = pd.Series([0] * len(self.possible_actions), index=self.q_table.columns, name=state)
-                self.q_table = self.q_table.append(ser)
-        except Exception as ex:
-            a = 4
+        if state not in self.q_table.index:
+            # append new state to q table.
+            ser = pd.Series([0] * len(self.possible_actions), index=self.q_table.columns, name=state)
+            self.q_table = self.q_table.append(ser)

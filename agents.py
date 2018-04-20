@@ -21,12 +21,13 @@ class Sc2Agent:
         :param obs: SC2Env state
         :return: SC2Action
         """
-        if not self.marine_selected(obs):
+        if not self.own_units_selected(obs):
             return Sc2Action(constants.NO_OP, actions.FUNCTIONS.no_op.id, has_location=False, has_queued=False)
         return self._act(obs)
 
     def _act(self, obs):
-        sc_action = self.model.select_action(obs)
+        state = self.obs_to_state(obs)
+        sc_action = self.model.select_action(state)
 
         if sc_action.internal_id == constants.NO_OP:
             pass
@@ -61,6 +62,19 @@ class Sc2Agent:
         with open(save_file, 'rb') as f:
             tmp_dict = pickle.load(f)
         return tmp_dict
+
+    @staticmethod
+    def obs_to_state(obs):
+        """
+        Convert sc2 obs object to a distance_to_enemy state.
+        :param obs: SC2Env observation
+        :return:
+        """
+        marine_loc = np.array(get_own_unit_location(obs))
+        enemy_loc = np.array(get_enemy_unit_location(obs))
+        dist = np.linalg.norm(marine_loc - enemy_loc)
+        rounded_dist = int(round(dist))
+        return rounded_dist
 
     def get_location_away(self, obs):
         own_location = get_own_unit_location(obs)
@@ -117,9 +131,6 @@ class Sc2Agent:
         clipped_location = (np.clip(location[0], 0, screen_x_max), np.clip(location[1], 0, screen_y_max))
         return clipped_location
 
-    def obs_to_state(self, obs):
-        return self.model.obs_to_state(obs)
-
     @property
     def training_mode(self):
         return self.model.training_mode
@@ -129,6 +140,6 @@ class Sc2Agent:
         self.model.training_mode = val
 
     @staticmethod
-    def marine_selected(obs):
+    def own_units_selected(obs):
         # For some reason the environment looses selection of my marine
         return actions.FUNCTIONS.Attack_screen.id in obs.observation['available_actions']
