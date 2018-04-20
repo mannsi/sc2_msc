@@ -16,7 +16,6 @@ class Sc2Action:
     def get_function_call(self):
         """
         Get a function call expected by SC2Env.step function
-        :param location: tuple of x, y coordinates. Can be skipped if there is no location needed
         :return: pysc2.lib.actions.FunctionCall object
         """
         args = []

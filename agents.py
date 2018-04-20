@@ -143,3 +143,19 @@ class Sc2Agent:
     def own_units_selected(obs):
         # For some reason the environment looses selection of my marine
         return actions.FUNCTIONS.Attack_screen.id in obs.observation['available_actions']
+
+
+class Simple2DAgent(Sc2Agent):
+    @staticmethod
+    def obs_to_state(obs):
+        # TODO Convert to single 2D features layers (mine and enemy units). Should be binary layers, and configurable how many there are
+        """
+        Convert sc2 obs object to a distance_to_enemy state.
+        :param obs: SC2Env observation
+        :return:
+        """
+        marine_loc = np.array(get_own_unit_location(obs))
+        enemy_loc = np.array(get_enemy_unit_location(obs))
+        dist = np.linalg.norm(marine_loc - enemy_loc)
+        rounded_dist = int(round(dist))
+        return rounded_dist

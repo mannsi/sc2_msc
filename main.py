@@ -14,7 +14,7 @@ from pysc2.lib import actions
 # noinspection PyUnresolvedReferences
 import maps as my_maps
 from agents import Sc2Agent
-from models import RandomModel, QLearningTableEnemyFocusedModel
+from models import RandomModel, QLearningTableModel
 from sc2_action import Sc2Action
 import constants
 import flags_import
@@ -131,12 +131,12 @@ def run(unused_argv):
     elif FLAGS.agent == "random":
         model = RandomModel(sc_actions)
     elif FLAGS.agent == "table":
-        model = QLearningTableEnemyFocusedModel(possible_actions=sc_actions,
-                                                learning_rate=FLAGS.learning_rate,
-                                                reward_decay=FLAGS.discount,
-                                                epsilon_greedy=0.9,
-                                                total_episodes=NUM_EPISODES,
-                                                should_decay_lr=FLAGS.decay_lr)
+        model = QLearningTableModel(possible_actions=sc_actions,
+                                    learning_rate=FLAGS.learning_rate,
+                                    reward_decay=FLAGS.discount,
+                                    epsilon_greedy=0.9,
+                                    total_episodes=NUM_EPISODES,
+                                    should_decay_lr=FLAGS.decay_lr)
     else:
         raise NotImplementedError()
 

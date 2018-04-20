@@ -47,8 +47,7 @@ class RandomModel(Sc2Model):
         pass
 
 
-class QLearningTableEnemyFocusedModel(Sc2Model):
-    """ Q learning table model where location is always on SCV """
+class QLearningTableModel(Sc2Model):
     def __init__(self, possible_actions, learning_rate, reward_decay, epsilon_greedy, total_episodes, should_decay_lr):
         super().__init__(possible_actions, should_decay_lr)
         self.possible_actions_dict = {a.internal_id: a for a in possible_actions}
@@ -105,3 +104,7 @@ class QLearningTableEnemyFocusedModel(Sc2Model):
             # append new state to q table.
             ser = pd.Series([0] * len(self.possible_actions), index=self.q_table.columns, name=state)
             self.q_table = self.q_table.append(ser)
+
+
+class Conv2DAgent(Sc2Model):
+    pass
