@@ -18,12 +18,12 @@ flags.DEFINE_string("log_path", os.path.join(Path.home(), "tb_output"), "Path fo
 flags.DEFINE_string("device", "0", "Device for training.")
 flags.DEFINE_bool("profile", False, "Whether to turn on code profiling.")
 flags.DEFINE_bool("trace", False, "Whether to trace the code execution.")
-flags.DEFINE_integer("minimap_resolution", 84, "Resolution for minimap feature layers.")
+flags.DEFINE_integer("minimap_resolution", 164, "Resolution for minimap feature layers.")
 
 flags.DEFINE_string("map", "DefeatRoaches", "Name of a map to use.")
 flags.DEFINE_integer("max_steps", 20, "Total steps for training.")  # Num episodes
 flags.DEFINE_bool("render", False, "Whether to render with pygame.")
-flags.DEFINE_integer("screen_resolution", 84, "Resolution for screen feature layers.")
+flags.DEFINE_integer("screen_resolution", 64, "Resolution for screen feature layers.")
 # flags.DEFINE_integer("step_mul", 1, "Game steps per agent step.")
 flags.DEFINE_integer("step_mul", 8, "Game steps per agent step.")
 flags.DEFINE_string("agent", "always_attack", "Which agent to run.")

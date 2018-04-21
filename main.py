@@ -13,8 +13,8 @@ from pysc2.lib import actions
 
 # noinspection PyUnresolvedReferences
 import maps as my_maps
-from agents import Sc2Agent
-from models import RandomModel, QLearningTableModel
+from agents import Sc2Agent, Simple2DAgent
+from models import RandomModel, QLearningTableModel, Conv2DModel
 from sc2_action import Sc2Action
 import constants
 import flags_import
@@ -127,9 +127,10 @@ def run(unused_argv):
 
     if FLAGS.agent == "always_attack":
         model = RandomModel([Sc2Action(constants.ATTACK_ENEMY, actions.FUNCTIONS.Attack_screen.id, True)])
-        # model = AlwayAttackEnemyModel([Sc2Action(constants.MOVE_TO_ENEMY, actions.FUNCTIONS.Move_screen.id, True)])
+        agent = Sc2Agent(model)
     elif FLAGS.agent == "random":
         model = RandomModel(sc_actions)
+        agent = Sc2Agent(model)
     elif FLAGS.agent == "table":
         model = QLearningTableModel(possible_actions=sc_actions,
                                     learning_rate=FLAGS.learning_rate,
@@ -137,10 +138,14 @@ def run(unused_argv):
                                     epsilon_greedy=0.9,
                                     total_episodes=NUM_EPISODES,
                                     should_decay_lr=FLAGS.decay_lr)
+        agent = Sc2Agent(model)
+    elif FLAGS.agent == "2d_simple_qlearning":
+        model = Conv2DModel(sc_actions, FLAGS.decay_lr)
+        agent = Simple2DAgent(model)
+
     else:
         raise NotImplementedError()
 
-    agent = Sc2Agent(model)
 
     tb_training_writer = tf.summary.FileWriter(TRAIN_LOG)
     if FLAGS.test_agent:

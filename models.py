@@ -106,5 +106,5 @@ class QLearningTableModel(Sc2Model):
             self.q_table = self.q_table.append(ser)
 
 
-class Conv2DAgent(Sc2Model):
+class Conv2DModel(Sc2Model):
     pass

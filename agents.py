@@ -1,7 +1,7 @@
 import pickle
 import numpy as np
 
-from pysc2.lib import actions
+from pysc2.lib import actions, features
 from sc2_env_functions import get_own_unit_location, get_enemy_unit_location, get_enemy_width_and_height
 
 from sc2_action import Sc2Action
@@ -146,16 +146,20 @@ class Sc2Agent:
 
 
 class Simple2DAgent(Sc2Agent):
-    @staticmethod
-    def obs_to_state(obs):
-        # TODO Convert to single 2D features layers (mine and enemy units). Should be binary layers, and configurable how many there are
+    def obs_to_state(self, obs):
         """
         Convert sc2 obs object to a distance_to_enemy state.
         :param obs: SC2Env observation
         :return:
         """
-        marine_loc = np.array(get_own_unit_location(obs))
-        enemy_loc = np.array(get_enemy_unit_location(obs))
-        dist = np.linalg.norm(marine_loc - enemy_loc)
-        rounded_dist = int(round(dist))
-        return rounded_dist
+        # Which player owns which units
+        player_id_feature = obs.observation['screen'][features.SCREEN_FEATURES.player_id.index]
+
+        own_player_id = 1
+        enemy_player_id = 2
+
+        own_units_feature = np.array(player_id_feature == own_player_id, dtype=int)
+        enemy_units_feature = np.array(player_id_feature == enemy_player_id, dtype=int)
+
+        all_features = np.stack((own_units_feature, enemy_units_feature))
+        return all_features
