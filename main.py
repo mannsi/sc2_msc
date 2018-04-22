@@ -13,8 +13,8 @@ from pysc2.lib import actions
 
 # noinspection PyUnresolvedReferences
 import maps as my_maps
-from agents import Sc2Agent, Simple2DAgent
-from models import RandomModel, QLearningTableModel, Conv2DModel
+from agents import Sc2Agent, Simple1DAgent
+from models import RandomModel, QLearningTableModel, Dense1DModel
 from sc2_action import Sc2Action
 import constants
 import flags_import
@@ -55,7 +55,6 @@ else:
     replay_dir = None
     save_replays_every_num_episodes = 0
 
-
 agent_save_files_dir = os.path.join(run_log_path, 'AgentFiles')
 os.makedirs(agent_save_files_dir)
 
@@ -71,29 +70,34 @@ def run_agent(agent, map_name, visualize, tb_training_writer, tb_testing_writer)
             replay_dir=replay_dir,
             save_replay_episodes=save_replays_every_num_episodes) as env:
         replay_buffer = []
+        step_counter = 0
         for episode_number in range(1, NUM_EPISODES + 1):
             obs = env.reset()[0]  # Initial obs from env
             while True:
+                step_counter += 1
                 prev_obs = obs
                 action = agent.act(obs)
                 obs = env.step([action.get_function_call()])[0]
-                s, a, r, s_ = agent.obs_to_state(prev_obs), action, obs.reward, agent.obs_to_state(obs) if not obs.last() else None
-                replay_buffer.append((s, a, r, s_))
+                s, a, r, s_ = agent.obs_to_state(prev_obs), action, obs.reward, agent.obs_to_state(
+                    obs) if not obs.last() else None
+
+                if step_counter < FLAGS.experience_replay_max_size:
+                    # Start by filling the buffer
+                    replay_buffer.append((s, a, r, s_))
+                else:
+                    # Now systematically replace the oldest values
+                    replay_buffer[step_counter % FLAGS.experience_replay_max_size] = (s, a, r, s_)
 
                 if obs.last():
-                    replay_buffer_df = pd.DataFrame.from_records(replay_buffer, columns=['state', 'action', 'reward', 'next_state'])
+                    # replay_buffer_df = pd.DataFrame.from_records(replay_buffer,
+                    #                                              columns=['state', 'action', 'reward', 'next_state'])
 
-                    should_update_agent = episode_number % FLAGS.episodes_between_updates == 0
-                    if should_update_agent:
-                        if FLAGS.randomize_replay_buffer:
-                            random.shuffle(replay_buffer)
-                        agent.observe(replay_buffer)
-                        replay_buffer = []
+                    agent_results_dict = agent.observe(replay_buffer)
 
                     if agent.training_mode:
-                        log_episode(tb_training_writer, obs, episode_number)
+                        log_episode(tb_training_writer, obs, episode_number, agent_results_dict)
                     else:
-                        log_episode(tb_testing_writer, obs, episode_number)
+                        log_episode(tb_testing_writer, obs, episode_number, agent_results_dict)
                         agent.save(os.path.join(agent_save_files_dir, str(episode_number)))
 
                     should_test_agent = FLAGS.test_agent and episode_number % FLAGS.snapshot_step == 0
@@ -108,23 +112,22 @@ def run_agent(agent, map_name, visualize, tb_training_writer, tb_testing_writer)
     print("Took %.3f seconds" % elapsed_time)
 
 
-def log_episode(tb_writer, last_obs, episode_number):
+def log_episode(tb_writer, last_obs, episode_number, agent_results_dict):
     total_episode_rewards = last_obs.observation["score_cumulative"][0]
     reward_summary = tf.Summary(value=[tf.Summary.Value(tag='Episode rewards', simple_value=total_episode_rewards)])
     tb_writer.add_summary(reward_summary, episode_number)
 
+    for k, v in agent_results_dict.items():
+        results_summary = tf.Summary(value=[tf.Summary.Value(tag=k, simple_value=v)])
+        tb_writer.add_summary(results_summary, episode_number)
 
-def run(unused_argv):
-    stopwatch.sw.enabled = FLAGS.profile or FLAGS.trace
-    stopwatch.sw.trace = FLAGS.trace
 
-    sc_actions = [
-                  Sc2Action(constants.NO_OP, actions.FUNCTIONS.no_op.id, False, False),
-                  Sc2Action(constants.MOVE_TO_ENEMY, actions.FUNCTIONS.Move_screen.id, True),
-                  Sc2Action(constants.MOVE_FROM_ENEMY, actions.FUNCTIONS.Move_screen.id, True),
-                  Sc2Action(constants.ATTACK_ENEMY, actions.FUNCTIONS.Attack_screen.id, True)
-                  ]
-
+def create_agent(sc_actions):
+    """
+    Creates an sc2 agent based on available actions and Flags variables
+    :param sc_actions: List of Sc2Action objects that define which actions are available to the agent
+    :return: agents.SC2Agent object
+    """
     if FLAGS.agent == "always_attack":
         model = RandomModel([Sc2Action(constants.ATTACK_ENEMY, actions.FUNCTIONS.Attack_screen.id, True)])
         agent = Sc2Agent(model)
@@ -132,20 +135,41 @@ def run(unused_argv):
         model = RandomModel(sc_actions)
         agent = Sc2Agent(model)
     elif FLAGS.agent == "table":
-        model = QLearningTableModel(possible_actions=sc_actions,
-                                    learning_rate=FLAGS.learning_rate,
+        model = QLearningTableModel(actions=sc_actions,
+                                    lr=FLAGS.learning_rate,
                                     reward_decay=FLAGS.discount,
                                     epsilon_greedy=0.9,
                                     total_episodes=NUM_EPISODES,
                                     should_decay_lr=FLAGS.decay_lr)
         agent = Sc2Agent(model)
-    elif FLAGS.agent == "2d_simple_qlearning":
-        model = Conv2DModel(sc_actions, FLAGS.decay_lr)
-        agent = Simple2DAgent(model)
+    elif FLAGS.agent == "1d_qlearning":
+        num_inputs = FLAGS.screen_resolution * FLAGS.screen_resolution * 2  # 2 for our and enemy unit plains
 
+        model = Dense1DModel(actions=sc_actions,
+                             lr=FLAGS.learning_rate,
+                             reward_decay=FLAGS.discount,
+                             epsilon_greedy=0.9,
+                             total_episodes=NUM_EPISODES,
+                             num_inputs=num_inputs,
+                             mini_batch_size=FLAGS.mini_batch_size)
+        agent = Simple1DAgent(model)
     else:
         raise NotImplementedError()
+    return agent
 
+
+def run(unused_argv):
+    stopwatch.sw.enabled = FLAGS.profile or FLAGS.trace
+    stopwatch.sw.trace = FLAGS.trace
+
+    sc_actions = [
+        Sc2Action(constants.NO_OP, actions.FUNCTIONS.no_op.id, False, False),
+        Sc2Action(constants.MOVE_TO_ENEMY, actions.FUNCTIONS.Move_screen.id, True),
+        Sc2Action(constants.MOVE_FROM_ENEMY, actions.FUNCTIONS.Move_screen.id, True),
+        Sc2Action(constants.ATTACK_ENEMY, actions.FUNCTIONS.Attack_screen.id, True)
+    ]
+
+    agent = create_agent(sc_actions)
 
     tb_training_writer = tf.summary.FileWriter(TRAIN_LOG)
     if FLAGS.test_agent:

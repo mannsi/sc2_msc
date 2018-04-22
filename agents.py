@@ -7,6 +7,9 @@ from sc2_env_functions import get_own_unit_location, get_enemy_unit_location, ge
 from sc2_action import Sc2Action
 import constants
 
+OWN_PLAYER_FEATURE_ID = 1
+ENEMY_PLAYER_FEATURE_ID = 2
+
 
 class Sc2Agent:
     def __init__(self, model):
@@ -51,7 +54,7 @@ class Sc2Agent:
         Update the agent
         :param replay_buffer: list of tuples containing (state, action, reward, next_state)
         """
-        self.model.update(replay_buffer)
+        return self.model.update(replay_buffer)
 
     def save(self, save_file='agent_file'):
         with open(save_file, 'wb') as f:
@@ -145,6 +148,26 @@ class Sc2Agent:
         return actions.FUNCTIONS.Attack_screen.id in obs.observation['available_actions']
 
 
+
+
+class Simple1DAgent(Sc2Agent):
+    def obs_to_state(self, obs):
+        """
+        Convert sc2 obs object to a distance_to_enemy state.
+        :param obs: SC2Env observation
+        :return:
+        """
+        # Which player owns which units
+        player_id_feature = obs.observation['screen'][features.SCREEN_FEATURES.player_id.index]
+
+        own_units_feature = np.array(player_id_feature == OWN_PLAYER_FEATURE_ID, dtype=int)
+        enemy_units_feature = np.array(player_id_feature == ENEMY_PLAYER_FEATURE_ID, dtype=int)
+
+        all_features = np.stack((own_units_feature, enemy_units_feature))
+        state = all_features.flatten()
+        return state.reshape(1, state.shape[0])
+
+
 class Simple2DAgent(Sc2Agent):
     def obs_to_state(self, obs):
         """
@@ -155,11 +178,9 @@ class Simple2DAgent(Sc2Agent):
         # Which player owns which units
         player_id_feature = obs.observation['screen'][features.SCREEN_FEATURES.player_id.index]
 
-        own_player_id = 1
-        enemy_player_id = 2
-
-        own_units_feature = np.array(player_id_feature == own_player_id, dtype=int)
-        enemy_units_feature = np.array(player_id_feature == enemy_player_id, dtype=int)
+        own_units_feature = np.array(player_id_feature == OWN_PLAYER_FEATURE_ID, dtype=int)
+        enemy_units_feature = np.array(player_id_feature == ENEMY_PLAYER_FEATURE_ID, dtype=int)
 
         all_features = np.stack((own_units_feature, enemy_units_feature))
+
         return all_features
