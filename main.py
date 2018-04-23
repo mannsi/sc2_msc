@@ -81,12 +81,16 @@ def run_agent(agent, map_name, visualize, tb_training_writer, tb_testing_writer)
                 s, a, r, s_ = agent.obs_to_state(prev_obs), action, obs.reward, agent.obs_to_state(
                     obs) if not obs.last() else None
 
-                if step_counter < FLAGS.experience_replay_max_size:
+                if step_counter <= FLAGS.experience_replay_max_size:
                     # Start by filling the buffer
                     replay_buffer.append((s, a, r, s_))
                 else:
                     # Now systematically replace the oldest values
-                    replay_buffer[step_counter % FLAGS.experience_replay_max_size] = (s, a, r, s_)
+                    try:
+                        replay_buffer[step_counter % FLAGS.experience_replay_max_size] = (s, a, r, s_)
+                    except Exception as e:
+                        print(step_counter, FLAGS.experience_replay_max_size, step_counter % FLAGS.experience_replay_max_size, len(replay_buffer))
+                        raise e
 
                 if obs.last():
                     # replay_buffer_df = pd.DataFrame.from_records(replay_buffer,

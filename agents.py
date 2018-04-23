@@ -25,7 +25,7 @@ class Sc2Agent:
         :return: SC2Action
         """
         if not self.own_units_selected(obs):
-            return Sc2Action(constants.NO_OP, actions.FUNCTIONS.no_op.id, has_location=False, has_queued=False)
+            return self.model.default_action()
         return self._act(obs)
 
     def _act(self, obs):
@@ -148,8 +148,6 @@ class Sc2Agent:
         return actions.FUNCTIONS.Attack_screen.id in obs.observation['available_actions']
 
 
-
-
 class Simple1DAgent(Sc2Agent):
     def obs_to_state(self, obs):
         """
@@ -166,6 +164,13 @@ class Simple1DAgent(Sc2Agent):
         all_features = np.stack((own_units_feature, enemy_units_feature))
         state = all_features.flatten()
         return state.reshape(1, state.shape[0])
+
+    def save(self, save_file='agent_file'):
+        self.model.save(save_file)
+
+    @staticmethod
+    def load(save_file='agent_file'):
+        pass
 
 
 class Simple2DAgent(Sc2Agent):

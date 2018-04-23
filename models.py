@@ -4,6 +4,7 @@ import pandas as pd
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.optimizers import Adam
+from keras.callbacks import TensorBoard
 
 
 class Sc2Model:
@@ -51,6 +52,16 @@ class Sc2Model:
 
     def _update(self, replay_buffer):
         raise NotImplementedError("Please Implement this method")
+
+    def default_action(self):
+        return self.actions[0]
+
+    def save(self, save_file):
+        pass
+
+    @staticmethod
+    def load(save_file):
+        pass
 
 
     @property
@@ -151,9 +162,17 @@ class Dense1DModel(Sc2Model):
             y_train.append(y.reshape(y.shape[1],))
         X_train = np.array(X_train)
         y_train = np.array(y_train)
-        results = self.model.fit(X_train, y_train, batch_size=self.mini_batch_size, epochs=1, verbose=1)
+        tb_callback = TensorBoard(log_dir='./Graph', histogram_freq=0, write_graph=True, write_images=True, write_grads=True)
+        results = self.model.fit(X_train, y_train, batch_size=self.mini_batch_size, epochs=1, verbose=1, callbacks=[tb_callback])
         loss = results.history['loss'][0]
         return {'loss': loss}
+
+    def save(self, save_file):
+        pass
+
+    @staticmethod
+    def load(save_file):
+        pass
 
     def create_model(self):
         model = Sequential()
