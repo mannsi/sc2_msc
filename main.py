@@ -155,7 +155,8 @@ def create_agent(sc_actions):
                              epsilon_greedy=0.9,
                              total_episodes=NUM_EPISODES,
                              num_inputs=num_inputs,
-                             mini_batch_size=FLAGS.mini_batch_size)
+                             mini_batch_size=FLAGS.mini_batch_size,
+                             log_dir=os.path.join(TRAIN_LOG, 'model'))
         agent = Simple1DAgent(model)
     else:
         raise NotImplementedError()

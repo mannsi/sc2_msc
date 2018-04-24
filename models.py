@@ -129,8 +129,9 @@ class QLearningTableModel(Sc2Model):
 
 
 class Dense1DModel(Sc2Model):
-    def __init__(self, actions, lr, reward_decay, epsilon_greedy, total_episodes, num_inputs, mini_batch_size):
+    def __init__(self, actions, lr, reward_decay, epsilon_greedy, total_episodes, num_inputs, mini_batch_size, log_dir):
         super().__init__(actions, lr, epsilon_greedy, False, total_episodes)
+        self.log_dir = log_dir
         self.mini_batch_size = mini_batch_size
         self.num_inputs = num_inputs
         self.gamma = reward_decay
@@ -162,7 +163,8 @@ class Dense1DModel(Sc2Model):
             y_train.append(y.reshape(y.shape[1],))
         X_train = np.array(X_train)
         y_train = np.array(y_train)
-        tb_callback = TensorBoard(log_dir='./Graph', histogram_freq=0, write_graph=True, write_images=True, write_grads=True)
+        tb_callback = TensorBoard(log_dir=self.log_dir, histogram_freq=5, write_graph=True, write_images=True, write_grads=True)
+        # tb_callback = TensorBoard(log_dir='.Graph', histogram_freq=0, write_graph=True, write_images=True, write_grads=True)
         results = self.model.fit(X_train, y_train, batch_size=self.mini_batch_size, epochs=1, verbose=1, callbacks=[tb_callback])
         loss = results.history['loss'][0]
         return {'loss': loss}
