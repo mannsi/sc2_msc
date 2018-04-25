@@ -25,8 +25,7 @@ flags.DEFINE_bool("render", False, "Whether to render with pygame.")
 flags.DEFINE_integer("screen_resolution", 64, "Resolution for screen feature layers.")
 flags.DEFINE_integer("step_mul", 8, "Game steps per agent step.")
 flags.DEFINE_string("agent", "always_attack", "Which agent to run.")
-flags.DEFINE_string("net", "atari", "atari or fcn.")
-
+flags.DEFINE_bool("should_log", True, "Whether to log or not")
 
 flags.DEFINE_integer("experience_replay_max_size", 1000, "Max steps to keep in replay buffer before overwriting")
 flags.DEFINE_integer("mini_batch_size", 64, "Minibatch size")

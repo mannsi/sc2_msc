@@ -21,7 +21,7 @@ source "$virtual_env_location"/bin/activate
 
 # Run the training scrypt
 echo "About to run training script"
-python3 "$python_training_file" --log_path "$tb_output" $python_params
+python3 "$python_training_file" --log_path "$tb_output" ${python_params}
 
 # Unmount the cloud fs
 fusermount -u "$tb_output"

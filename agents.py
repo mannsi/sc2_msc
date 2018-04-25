@@ -4,7 +4,7 @@ import numpy as np
 from pysc2.lib import actions, features
 from sc2_env_functions import get_own_unit_location, get_enemy_unit_location, get_enemy_width_and_height
 
-from sc2_action import Sc2Action
+from sc2_action import internal_id_to_action_d
 import constants
 
 OWN_PLAYER_FEATURE_ID = 1
@@ -39,13 +39,12 @@ class Sc2Agent:
             sc_action.set_location(location)
         elif sc_action.internal_id == constants.MOVE_TO_ENEMY:
             location = self.get_location_to(obs)
-
             sc_action.set_location(location)
         elif sc_action.internal_id == constants.MOVE_FROM_ENEMY:
             location = self.get_location_away(obs)
             sc_action.set_location(location)
         else:
-            raise NotImplementedError("Unknown action ID received")
+            raise NotImplementedError(f"Unknown action ID {sc_action.internal_id} received")
 
         return sc_action
 
@@ -73,9 +72,9 @@ class Sc2Agent:
         :param obs: SC2Env observation
         :return:
         """
-        marine_loc = np.array(get_own_unit_location(obs))
+        own_unit_loc = np.array(get_own_unit_location(obs))
         enemy_loc = np.array(get_enemy_unit_location(obs))
-        dist = np.linalg.norm(marine_loc - enemy_loc)
+        dist = np.linalg.norm(own_unit_loc - enemy_loc)
         rounded_dist = int(round(dist))
         return rounded_dist
 
@@ -144,8 +143,88 @@ class Sc2Agent:
 
     @staticmethod
     def own_units_selected(obs):
-        # For some reason the environment looses selection of my marine
-        return actions.FUNCTIONS.Attack_screen.id in obs.observation['available_actions']
+        # For some reason the environment looses selection of own unit from time to time
+        return actions.FUNCTIONS.Move_screen.id in obs.observation['available_actions']
+
+
+class SimpleVikingAgent(Sc2Agent):
+    def __init__(self, model, possible_actions):
+        super().__init__(model)
+        self.actions = possible_actions
+
+    def _act(self, obs):
+        state = self.obs_to_state(obs)
+        illegal_internal_action_ids = self._get_illegal_internal_action_ids(obs)
+        sc_action = self.model.select_action(state, illegal_internal_action_ids)
+
+        if sc_action.internal_id == constants.NO_OP:
+            pass
+        elif sc_action.internal_id == constants.ATTACK_ENEMY:
+            location = get_enemy_unit_location(obs)
+            sc_action.set_location(location)
+        elif sc_action.internal_id == constants.MOVE_TO_ENEMY:
+            raise ValueError("Move to enemy action is illegal for this agent")
+        elif sc_action.internal_id == constants.MOVE_FROM_ENEMY:
+            location = self.get_location_away(obs)
+            sc_action.set_location(location)
+        elif sc_action.internal_id == constants.LAND:
+            pass
+        elif sc_action.internal_id == constants.FLIGHT:
+            pass
+        else:
+            raise NotImplementedError("Unknown action ID received")
+
+        return sc_action
+
+    def obs_to_state(self, obs):
+        """
+        Convert sc2 obs object to a (distance_to_enemy, viking_flying_or_landed) state.
+        :param obs: SC2Env observation
+        :return:
+        """
+        # Distance
+        own_unit_loc = np.array(get_own_unit_location(obs))
+        enemy_loc = np.array(get_enemy_unit_location(obs))
+        dist = np.linalg.norm(own_unit_loc - enemy_loc)
+        rounded_dist = int(round(dist))
+
+        # Flying or landed
+        flight_status = None
+        landed_action_id = internal_id_to_action_d(constants.LAND)
+        can_land = landed_action_id in obs.observation['available_actions']
+        if can_land:
+            # If we can land we are flying
+            flight_status = 'flying'
+        else:
+            flying_action_id = internal_id_to_action_d(constants.FLIGHT)
+            can_fly = flying_action_id in obs.observation['available_actions']
+            if can_fly:
+                # If we can fly we are landed
+                flight_status = 'landed'
+            else:
+                ValueError("Can neither land nor fly ... ")
+
+        return str((rounded_dist, flight_status))
+
+    def _get_illegal_internal_action_ids(self, obs):
+        illegal_internal_action_id = []
+
+        internal_and_action_ids = [(a.internal_id, internal_id_to_action_d(a.internal_id)) for a in self.actions]
+
+        for internal_id, action_id in internal_and_action_ids:
+            if action_id not in obs.observation['available_actions']:
+                illegal_internal_action_id.append(internal_id)
+        return illegal_internal_action_id
+
+    def get_legal_internal_action_ids(self, obs):
+        legal_internal_action_id = []
+
+        internal_and_action_ids = [(a.internal_id, internal_id_to_action_d(a.internal_id)) for a in self.actions]
+
+        for internal_id, action_id in internal_and_action_ids:
+            if action_id in obs.observation['available_actions']:
+                legal_internal_action_id.append(internal_id)
+        return list(set(legal_internal_action_id))
 
 
 class Simple1DAgent(Sc2Agent):
@@ -171,21 +250,3 @@ class Simple1DAgent(Sc2Agent):
     @staticmethod
     def load(save_file='agent_file'):
         pass
-
-
-class Simple2DAgent(Sc2Agent):
-    def obs_to_state(self, obs):
-        """
-        Convert sc2 obs object to a distance_to_enemy state.
-        :param obs: SC2Env observation
-        :return:
-        """
-        # Which player owns which units
-        player_id_feature = obs.observation['screen'][features.SCREEN_FEATURES.player_id.index]
-
-        own_units_feature = np.array(player_id_feature == OWN_PLAYER_FEATURE_ID, dtype=int)
-        enemy_units_feature = np.array(player_id_feature == ENEMY_PLAYER_FEATURE_ID, dtype=int)
-
-        all_features = np.stack((own_units_feature, enemy_units_feature))
-
-        return all_features

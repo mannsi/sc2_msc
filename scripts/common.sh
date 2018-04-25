@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 is_instance_running(){
   server_instance_name="$1"
 

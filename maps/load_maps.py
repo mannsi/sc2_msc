@@ -19,8 +19,13 @@ class DefeatLing(lib.Map):
     map_name = "DefeatLing"
 
 
+class VikingVsBaneling(lib.Map):
+    directory = "mini_games"
+    map_name = "VikingVsBaneling"
+
+
 def load_my_maps():
-    maps = [DefeatScv, DefeatLing]
+    maps = [DefeatScv, DefeatLing, VikingVsBaneling]
 
     for m in maps:
         globals()[m.map_name] = type(m.map_name, (m,), dict(filename=m.map_name))
