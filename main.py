@@ -77,21 +77,25 @@ def run_agent(agent, map_name, visualize, tb_training_writer, tb_testing_writer)
                 r = obs.reward
                 s_ = agent.obs_to_state(obs) if not obs.last() else None
 
-                print(f'Action {a.internal_id}, next state {agent.obs_to_state(obs)}, '
-                      f'next legal actions {agent.get_legal_internal_action_ids(obs)}')
+                # print(f'Action {a.internal_id}, next state {agent.obs_to_state(obs)}, '
+                #       f'next legal actions {agent.get_legal_internal_action_ids(obs)}')
 
-                if step_counter <= FLAGS.experience_replay_max_size:
-                    # Start by filling the buffer
-                    replay_buffer.append((s, a, r, s_))
-                else:
-                    # Now systematically replace the oldest values
-                    replay_buffer[step_counter % FLAGS.experience_replay_max_size] = (s, a, r, s_)
+                replay_buffer.append((s, a, r, s_))
+
+                # if step_counter <= FLAGS.experience_replay_max_size:
+                #     # Start by filling the buffer
+                #     replay_buffer.append((s, a, r, s_))
+                # else:
+                #     # Now systematically replace the oldest values
+                #     replay_buffer[step_counter % FLAGS.experience_replay_max_size] = (s, a, r, s_)
 
                 if obs.last():
-                    # replay_buffer_df = pd.DataFrame.from_records(replay_buffer,
-                    #                                              columns=['state', 'action', 'reward', 'next_state'])
+                    import pandas as pd
+                    replay_buffer_df = pd.DataFrame.from_records(replay_buffer,
+                                                                 columns=['state', 'action', 'reward', 'next_state'])
 
                     agent_results_dict = agent.observe(replay_buffer)
+                    replay_buffer = []
 
                     if agent.training_mode:
                         log_episode(tb_training_writer, obs, episode_number, agent_results_dict)
@@ -119,9 +123,10 @@ def log_episode(tb_writer, last_obs, episode_number, agent_results_dict):
     reward_summary = tf.Summary(value=[tf.Summary.Value(tag='Episode rewards', simple_value=total_episode_rewards)])
     tb_writer.add_summary(reward_summary, episode_number)
 
-    for k, v in agent_results_dict.items():
-        results_summary = tf.Summary(value=[tf.Summary.Value(tag=k, simple_value=v)])
-        tb_writer.add_summary(results_summary, episode_number)
+    if agent_results_dict is not None:
+        for k, v in agent_results_dict.items():
+            results_summary = tf.Summary(value=[tf.Summary.Value(tag=k, simple_value=v)])
+            tb_writer.add_summary(results_summary, episode_number)
 
 
 def create_agent(sc_actions):
@@ -181,10 +186,9 @@ def run(unused_argv):
     sc_actions = [
         Sc2Action(constants.NO_OP),
         # Sc2Action(constants.MOVE_TO_ENEMY),
-        Sc2Action(constants.MOVE_FROM_ENEMY),
+        # Sc2Action(constants.MOVE_FROM_ENEMY),
         Sc2Action(constants.ATTACK_ENEMY),
         Sc2Action(constants.LAND),
-
         Sc2Action(constants.FLIGHT),
     ]
 

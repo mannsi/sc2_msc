@@ -12,7 +12,6 @@ class Sc2Model:
         self.decay_lr = decay_lr
         self._training_mode = True
         self.actions = actions
-        self.episode_num = 0
 
     def select_action(self, obs, illegal_internal_action_ids=None):
         """
@@ -40,10 +39,8 @@ class Sc2Model:
         :param replay_buffer: iterable of (state, action, reward, next_state) tuples
         :return:
         """
-        self.episode_num += 1
-
         if self.decay_lr:
-            self.lr = self.lr * (self.total_episodes - self.episode_num) / self.total_episodes
+            self.lr -= 1/self.total_episodes
 
         return self._update(replay_buffer)
 
