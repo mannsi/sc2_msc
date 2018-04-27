@@ -73,6 +73,8 @@ def run_agent(agent, map_name, visualize, tb_training_writer, tb_testing_writer)
         replay_buffer = []
         step_counter = 0
         for episode_number in range(1, FLAGS.max_steps + 1):
+            if not agent.training_mode:
+                print("Next episode is test episode")
             obs = env.reset()[0]  # Initial obs from env
             while True:
                 step_counter += 1
@@ -103,15 +105,15 @@ def run_agent(agent, map_name, visualize, tb_training_writer, tb_testing_writer)
 
                     print(f'Episode rew: {obs.observation["score_cumulative"][0]}')
 
-                    agent_results_dict = agent.observe(replay_buffer)
-                    replay_buffer = []
-
                     if agent.training_mode:
-                        log_episode(tb_training_writer, obs, episode_number, agent_results_dict)
+                        agent.observe(replay_buffer)
+                        log_episode(tb_training_writer, obs, episode_number, None)
                     else:
-                        log_episode(tb_testing_writer, obs, episode_number, agent_results_dict)
+                        log_episode(tb_testing_writer, obs, episode_number, None)
                         if FLAGS.should_log:
                             agent.save(os.path.join(agent_save_files_dir, str(episode_number)))
+
+                    replay_buffer = []
 
                     should_test_agent = FLAGS.test_agent and episode_number % FLAGS.snapshot_step == 0
                     if should_test_agent:
