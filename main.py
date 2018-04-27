@@ -106,10 +106,13 @@ def run_agent(agent, map_name, visualize, tb_training_writer, tb_testing_writer)
                     print(f'Episode rew: {obs.observation["score_cumulative"][0]}')
 
                     if agent.training_mode:
-                        agent.observe(replay_buffer)
-                        log_episode(tb_training_writer, obs, episode_number, None)
+                        # Update agent
+                        results_dict = agent.observe(replay_buffer)
+                        log_episode(tb_training_writer, obs, episode_number, results_dict)
                     else:
-                        log_episode(tb_testing_writer, obs, episode_number, None)
+                        # Test agent
+                        results_dict = agent.observe([])  # Still want non replay related state
+                        log_episode(tb_testing_writer, obs, episode_number, results_dict)
                         if FLAGS.should_log:
                             agent.save(os.path.join(agent_save_files_dir, str(episode_number)))
 

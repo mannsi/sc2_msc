@@ -17,7 +17,8 @@ class Sc2Agent:
         """
         :param model: Sc2Model object
         """
-        self.replay_buffer = []
+        self.latest_replay_buffer = []
+        self.episode_num = 0
         self.model = model
 
     def act(self, obs):
@@ -55,20 +56,21 @@ class Sc2Agent:
         Update the agent
         :param replay_buffer: list of tuples containing (state, action, reward, next_state)
         """
-        self.replay_buffer = replay_buffer
+        self.episode_num += 1
+        self.latest_replay_buffer = replay_buffer
+
         return self.model.update(replay_buffer)
 
-    def save(self, save_file='agent_file'):
-        with open(save_file, 'wb') as f:
-            pickle.dump(self.__dict__, f)
+    def save(self, save_folder):
+        pass
 
-    @staticmethod
-    def load(save_file='agent_file'):
-        agent = Sc2Agent(model=None)
-        with open(save_file, 'rb') as f:
-            tmp_dict = pickle.load(f)
-        agent.__dict__.update(tmp_dict)
-        return agent
+    # @staticmethod
+    # def load(save_file='agent_file'):
+    #     agent = Sc2Agent(model=None)
+    #     with open(save_file, 'rb') as f:
+    #         tmp_dict = pickle.load(f)
+    #     agent.__dict__.update(tmp_dict)
+    #     return agent
 
     @staticmethod
     def obs_to_state(obs):
@@ -243,6 +245,10 @@ class SimpleVikingAgent(Sc2Agent):
             if action_id in obs.observation['available_actions']:
                 legal_internal_action_id.append(internal_id)
         return list(set(legal_internal_action_id))
+
+    def save(self, save_folder):
+        with open(save_folder, 'wb') as f:
+            pickle.dump(self.__dict__, f)
 
 
 class Simple1DAgent(Sc2Agent):

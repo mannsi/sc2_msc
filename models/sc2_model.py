@@ -2,11 +2,15 @@ import numpy as np
 
 
 class Sc2Model:
-    def __init__(self, actions, lr=0.1, epsilon=0.9, decay_lr=0.99, total_episodes=100):
+    def __init__(self, actions, lr=0.1, epsilon=0.9, decay_lr=True, total_episodes=100):
         """
         :param actions: list of ScAction objects
         """
+        if lr < 0:
+            raise ValueError(f"Learning rate {lr} cannot be negative")
+
         self.lr = lr
+        self.init_lr = lr
         self.epsilon = epsilon
         self.total_episodes = total_episodes
         self.decay_lr = decay_lr
@@ -40,9 +44,13 @@ class Sc2Model:
         :return:
         """
         if self.decay_lr:
-            self.lr -= 1/self.total_episodes
+            # TODO FOKK ÞESSI KÓÐI LÆKKAR HANN TOTAL UM 1 HEILANN!!!
+            self.lr -= (1 / self.total_episodes) * self.init_lr
 
-        return self._update(replay_buffer)
+        results_dict = self._update(replay_buffer)
+
+        # Below code joins 2 dictionaries
+        return {**{'lr': self.lr}, **results_dict}
 
     def _update(self, replay_buffer):
         raise NotImplementedError("Please Implement this method")
