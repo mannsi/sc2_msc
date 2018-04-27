@@ -17,6 +17,7 @@ class Sc2Agent:
         """
         :param model: Sc2Model object
         """
+        self.replay_buffer = []
         self.model = model
 
     def act(self, obs):
@@ -54,6 +55,7 @@ class Sc2Agent:
         Update the agent
         :param replay_buffer: list of tuples containing (state, action, reward, next_state)
         """
+        self.replay_buffer = replay_buffer
         return self.model.update(replay_buffer)
 
     def save(self, save_file='agent_file'):
@@ -62,9 +64,11 @@ class Sc2Agent:
 
     @staticmethod
     def load(save_file='agent_file'):
+        agent = Sc2Agent(model=None)
         with open(save_file, 'rb') as f:
             tmp_dict = pickle.load(f)
-        return tmp_dict
+        agent.__dict__.update(tmp_dict)
+        return agent
 
     @staticmethod
     def obs_to_state(obs):
@@ -218,7 +222,7 @@ class SimpleVikingAgent(Sc2Agent):
         # Is enemy coming towards us
         enemy_closing_in = 'enemy_closing_in' if obs.reward > 0 else '0'
 
-        return f'{rounded_dist}/{flying}/{enemy_closing_in}/{enemy_hit_points}'
+        return f'{rounded_dist}/{flying}/{enemy_closing_in}'
 
     def _get_illegal_internal_action_ids(self, obs):
         illegal_internal_action_id = []
