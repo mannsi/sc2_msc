@@ -76,7 +76,7 @@ def action_id_to_internal_id(action_id):
         raise ValueError(f"Received unknow action id {action_id}")
 
 
-def internal_id_to_action_d(internal_id):
+def internal_id_to_action_id(internal_id):
     if internal_id == constants.NO_OP:
         return actions.FUNCTIONS.no_op.id
     elif internal_id == constants.MOVE_TO_ENEMY:

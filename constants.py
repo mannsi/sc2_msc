@@ -12,6 +12,7 @@ LAND = "_LAND"
 
 # Screen features
 PLAYER_RELATIVE = features.SCREEN_FEATURES.player_relative.index
+UNIT_HIT_POINTS = features.SCREEN_FEATURES.unit_hit_points.index
 
 # define constants about AI's world
 UNITS_MINE = 1

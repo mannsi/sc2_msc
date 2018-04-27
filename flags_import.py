@@ -8,7 +8,7 @@ FLAGS = flags.FLAGS
 
 flags.DEFINE_bool("training", True, "Whether to train agents.")
 flags.DEFINE_float("learning_rate", 0.1, "Learning rate for training.")
-flags.DEFINE_float("discount", 0.99, "Discount rate for future rewards.")
+flags.DEFINE_float("discount", 0.95, "Discount rate for future rewards.")
 # flags.DEFINE_enum("agent_race", None, sc2_env.races.keys(), "Agent's race.")
 # flags.DEFINE_enum("bot_race", None, sc2_env.races.keys(), "Bot's race.")
 # flags.DEFINE_enum("difficulty", None, sc2_env.difficulties.keys(), "Bot's strength.")

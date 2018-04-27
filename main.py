@@ -10,11 +10,18 @@ from pysc2.lib import stopwatch
 # noinspection PyUnresolvedReferences
 import maps as my_maps
 from agents import Sc2Agent, Simple1DAgent, SimpleVikingAgent
-from models.basic_models import RandomModel, QLearningTableModel, PredefinedActionsModel, CmdInputModel
+from models.basic_models import RandomModel, QLearningTableModel, PredefinedActionsModel, CmdInputModel, HardCodedTableAgent
 
 from sc2_action import Sc2Action
 import constants
 import flags_import
+
+import random
+import numpy as np
+
+random.seed(7)
+np.random.seed(7)
+
 
 FLAGS = flags_import.get_flags()
 
@@ -50,7 +57,7 @@ if FLAGS.should_log:
     os.makedirs(agent_save_files_dir)
 else:
     replay_dir = None
-    save_replays_every_num_episodes = None
+    save_replays_every_num_episodes = 0
 
 
 def run_agent(agent, map_name, visualize, tb_training_writer, tb_testing_writer):
@@ -89,10 +96,12 @@ def run_agent(agent, map_name, visualize, tb_training_writer, tb_testing_writer)
                 #     # Now systematically replace the oldest values
                 #     replay_buffer[step_counter % FLAGS.experience_replay_max_size] = (s, a, r, s_)
 
-                if obs.last():
+                if obs.last() or r < 0:
                     import pandas as pd
                     replay_buffer_df = pd.DataFrame.from_records(replay_buffer,
                                                                  columns=['state', 'action', 'reward', 'next_state'])
+
+                    print(f'Episode rew: {obs.observation["score_cumulative"][0]}')
 
                     agent_results_dict = agent.observe(replay_buffer)
                     replay_buffer = []
@@ -142,8 +151,11 @@ def create_agent(sc_actions):
         model = RandomModel(sc_actions)
         agent = SimpleVikingAgent(model, sc_actions)
     elif FLAGS.agent == "predefined_actions":
-        action_list = [constants.NO_OP, constants.FLIGHT] + [constants.LAND] * 5
+        action_list = [constants.ATTACK_ENEMY, constants.ATTACK_ENEMY, constants.FLIGHT, constants.LAND, constants.ATTACK_ENEMY, constants.ATTACK_ENEMY] * 100
         model = PredefinedActionsModel(sc_actions, action_list)
+        agent = SimpleVikingAgent(model, sc_actions)
+    elif FLAGS.agent == "hardcoded":
+        model = HardCodedTableAgent(sc_actions)
         agent = SimpleVikingAgent(model, sc_actions)
     elif FLAGS.agent == "cmd_input":
         key_to_action_mapping = {'f': constants.FLIGHT,

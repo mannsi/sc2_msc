@@ -6,7 +6,7 @@ class DefeatScv(lib.Map):
     players = 1
     score_index = 0
     game_steps_per_episode = 0
-    step_mul = 100  # This flag is never used.
+    step_mul = 8
     map_name = "DefeatScv"
 
 
@@ -15,12 +15,16 @@ class DefeatLing(lib.Map):
     players = 1
     score_index = 0
     game_steps_per_episode = 0
-    step_mul = 100  # This flag is never used.
+    step_mul = 8
     map_name = "DefeatLing"
 
 
 class VikingVsBaneling(lib.Map):
     directory = "mini_games"
+    players = 1
+    score_index = 0
+    game_steps_per_episode = 0
+    step_mul = 24
     map_name = "VikingVsBaneling"
 
 

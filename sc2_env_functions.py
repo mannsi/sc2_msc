@@ -23,6 +23,12 @@ def get_enemy_unit_location(obs):
     return enemy_unit_loc_x.mean(), enemy_unit_loc_y.mean()
 
 
+def get_enemy_hit_points(obs):
+    enemy_x, enemy_y = get_enemy_unit_location(obs)
+    hit_points = obs.observation["screen"][constants.UNIT_HIT_POINTS][int(enemy_y), int(enemy_x)]
+    return hit_points
+
+
 def get_enemy_width_and_height(obs):
     """
     Returns (x_min, x_max, y_min, y_max)

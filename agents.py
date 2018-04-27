@@ -2,9 +2,10 @@ import pickle
 import numpy as np
 
 from pysc2.lib import actions, features
-from sc2_env_functions import get_own_unit_location, get_enemy_unit_location, get_enemy_width_and_height
+from sc2_env_functions import get_own_unit_location, get_enemy_unit_location, get_enemy_width_and_height, \
+    get_enemy_hit_points
 
-from sc2_action import internal_id_to_action_d
+from sc2_action import internal_id_to_action_id
 import constants
 
 OWN_PLAYER_FEATURE_ID = 1
@@ -187,29 +188,42 @@ class SimpleVikingAgent(Sc2Agent):
         enemy_loc = np.array(get_enemy_unit_location(obs))
         dist = np.linalg.norm(own_unit_loc - enemy_loc)
         rounded_dist = int(round(dist))
+        if 27 < rounded_dist <= 30:
+            distance_string = '2'
+        elif 17 <= rounded_dist <= 27:
+            distance_string = '1'
+        elif rounded_dist < 17:
+            distance_string = '0'
+        else:
+            raise ValueError(f"Rounded distance outside of exepected score. Val {dist:.4f}")
 
         # Flying or landed
-        flight_status = None
-        landed_action_id = internal_id_to_action_d(constants.LAND)
+        flying = None
+        landed_action_id = internal_id_to_action_id(constants.LAND)
         can_land = landed_action_id in obs.observation['available_actions']
         if can_land:
             # If we can land we are flying
-            flight_status = 'flying'
+            flying = 'flying'
         else:
-            flying_action_id = internal_id_to_action_d(constants.FLIGHT)
+            flying_action_id = internal_id_to_action_id(constants.FLIGHT)
             can_fly = flying_action_id in obs.observation['available_actions']
             if can_fly:
                 # If we can fly we are landed
-                flight_status = 'landed'
+                flying = 'landed'
             else:
                 ValueError("Can neither land nor fly ... ")
 
-        return str((rounded_dist, flight_status))
+        enemy_hit_points = get_enemy_hit_points(obs)
+
+        # Is enemy coming towards us
+        enemy_closing_in = 'enemy_closing_in' if obs.reward > 0 else '0'
+
+        return f'{rounded_dist}/{flying}/{enemy_closing_in}/{enemy_hit_points}'
 
     def _get_illegal_internal_action_ids(self, obs):
         illegal_internal_action_id = []
 
-        internal_and_action_ids = [(a.internal_id, internal_id_to_action_d(a.internal_id)) for a in self.actions]
+        internal_and_action_ids = [(a.internal_id, internal_id_to_action_id(a.internal_id)) for a in self.actions]
 
         for internal_id, action_id in internal_and_action_ids:
             if action_id not in obs.observation['available_actions']:
@@ -219,7 +233,7 @@ class SimpleVikingAgent(Sc2Agent):
     def get_legal_internal_action_ids(self, obs):
         legal_internal_action_id = []
 
-        internal_and_action_ids = [(a.internal_id, internal_id_to_action_d(a.internal_id)) for a in self.actions]
+        internal_and_action_ids = [(a.internal_id, internal_id_to_action_id(a.internal_id)) for a in self.actions]
 
         for internal_id, action_id in internal_and_action_ids:
             if action_id in obs.observation['available_actions']:

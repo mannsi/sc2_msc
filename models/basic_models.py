@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 from .sc2_model import Sc2Model
+from sc2_action import internal_id_to_action_id
+import constants
 
 
 class RandomModel(Sc2Model):
@@ -21,12 +23,13 @@ class PredefinedActionsModel(Sc2Model):
         self.list_of_internal_action_ids = list_of_internal_action_ids
         self.epsilon = 1  # Zero chance of random choice
 
-    def _select_action(self, obs, illegal_internal_action_ids=None):
+    def _select_action(self, state, illegal_internal_action_ids=None):
         internal_action_id = self.list_of_internal_action_ids.pop(0)
         for action in self.actions:
-            if action.internal_id == internal_action_id:
+            if action.internal_id == internal_action_id and internal_action_id not in illegal_internal_action_ids:
                 return action
-        raise ValueError(f"Internal action id {internal_action_id} not found in possible actions")
+        print('GOT HERE!!!!!')
+        return super().default_action()
 
     def _update(self, replay_buffer):
         pass
@@ -57,6 +60,47 @@ class CmdInputModel(Sc2Model):
 
     def _update(self, replay_buffer):
         pass
+
+
+class HardCodedTableAgent(Sc2Model):
+    def __init__(self, actions):
+        super().__init__(actions)
+        self.epsilon = 1  # Zero chance of random choice
+
+    def _select_action(self, obs, illegal_internal_action_ids=None):
+        distance, flying, enemmy_coming = self._state_to_ind_vars(obs)
+
+        if flying == 1:
+            internal_action_id = constants.LAND
+        else:
+            if distance == 0:
+                if enemmy_coming == 0:
+                    internal_action_id = constants.ATTACK_ENEMY
+                else:
+                    internal_action_id = constants.FLIGHT
+            if distance == 1:
+                if enemmy_coming == 0:
+                    internal_action_id = constants.ATTACK_ENEMY
+                else:
+                    internal_action_id = constants.FLIGHT
+            if distance == 2:
+                internal_action_id = constants.ATTACK_ENEMY
+
+        for action in self.actions:
+            if action.internal_id == internal_action_id and internal_action_id not in illegal_internal_action_ids:
+                return action
+        print('GOT HERE!!!!!')
+        return super().default_action()
+
+    def _update(self, replay_buffer):
+        pass
+
+    @staticmethod
+    def _state_to_ind_vars(state):
+        distance = int(state[0:1])
+        flying = int(state[1:2])
+        enemy_coming = int(state[2:3])
+        return distance, flying, enemy_coming
 
 
 class QLearningTableModel(Sc2Model):
