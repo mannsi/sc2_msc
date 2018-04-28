@@ -99,10 +99,6 @@ def run_agent(agent, map_name, visualize, tb_training_writer, tb_testing_writer)
                 #     replay_buffer[step_counter % FLAGS.experience_replay_max_size] = (s, a, r, s_)
 
                 if obs.last() or r < 0:
-                    import pandas as pd
-                    replay_buffer_df = pd.DataFrame.from_records(replay_buffer,
-                                                                 columns=['state', 'action', 'reward', 'next_state'])
-
                     print(f'Episode rew: {obs.observation["score_cumulative"][0]}')
 
                     if agent.training_mode:
@@ -114,7 +110,9 @@ def run_agent(agent, map_name, visualize, tb_training_writer, tb_testing_writer)
                         results_dict = agent.observe([])  # Still want non replay related state
                         log_episode(tb_testing_writer, obs, episode_number, results_dict)
                         if FLAGS.should_log:
-                            agent.save(os.path.join(agent_save_files_dir, str(episode_number)))
+                            episode_log_folder = os.path.join(agent_save_files_dir, str(episode_number))
+                            os.makedirs(episode_log_folder)
+                            agent.save(episode_log_folder)
 
                     replay_buffer = []
 

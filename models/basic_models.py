@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pandas as pd
 from .sc2_model import Sc2Model
@@ -142,6 +143,9 @@ class QLearningTableModel(Sc2Model):
             # update
             self.q_table.ix[s, a.internal_id] += self.lr * (q_target - q_predict)
         return {}
+
+    def save(self, save_folder):
+        self.q_table.to_csv(os.path.join(save_folder, 'model'))
 
     def check_state_exist(self, state):
         if state not in self.q_table.index:

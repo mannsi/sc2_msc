@@ -1,5 +1,7 @@
+import os
 import pickle
 import numpy as np
+import pandas as pd
 
 from pysc2.lib import actions, features
 from sc2_env_functions import get_own_unit_location, get_enemy_unit_location, get_enemy_width_and_height, \
@@ -62,7 +64,13 @@ class Sc2Agent:
         return self.model.update(replay_buffer)
 
     def save(self, save_folder):
-        pass
+        df = pd.DataFrame.from_records(self.latest_replay_buffer, columns=['state', 'action', 'reward', 'next_state'])
+        df.to_csv(os.path.join(save_folder, 'replay_buffer'))
+
+        self.model.save(save_folder)
+        agent_file_path = os.path.join(save_folder, 'agent_file')
+        with open(agent_file_path, 'wb') as f:
+            pickle.dump(self.__dict__, f)
 
     # @staticmethod
     # def load(save_file='agent_file'):
@@ -245,10 +253,6 @@ class SimpleVikingAgent(Sc2Agent):
             if action_id in obs.observation['available_actions']:
                 legal_internal_action_id.append(internal_id)
         return list(set(legal_internal_action_id))
-
-    def save(self, save_folder):
-        with open(save_folder, 'wb') as f:
-            pickle.dump(self.__dict__, f)
 
 
 class Simple1DAgent(Sc2Agent):

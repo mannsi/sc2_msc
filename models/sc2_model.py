@@ -44,7 +44,6 @@ class Sc2Model:
         :return:
         """
         if self.decay_lr:
-            # TODO FOKK ÞESSI KÓÐI LÆKKAR HANN TOTAL UM 1 HEILANN!!!
             self.lr -= (1 / self.total_episodes) * self.init_lr
 
         results_dict = self._update(replay_buffer)
@@ -58,7 +57,7 @@ class Sc2Model:
     def default_action(self):
         return self.actions[0]
 
-    def save(self, save_file):
+    def save(self, save_folder):
         pass
 
     @staticmethod
