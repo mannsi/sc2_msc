@@ -65,7 +65,7 @@ class Sc2Agent:
 
     def save(self, save_folder):
         df = pd.DataFrame.from_records(self.latest_replay_buffer, columns=['state', 'action', 'reward', 'next_state'])
-        df.to_csv(os.path.join(save_folder, 'replay_buffer'))
+        df.to_csv(os.path.join(save_folder, 'replay_buffer.csv'))
 
         self.model.save(save_folder)
         agent_file_path = os.path.join(save_folder, 'agent_file')
@@ -272,7 +272,7 @@ class Simple1DAgent(Sc2Agent):
         state = all_features.flatten()
         return state.reshape(1, state.shape[0])
 
-    def save(self, save_file='agent_file'):
+    def save(self, save_file='agent_binary_file'):
         self.model.save(save_file)
 
     @staticmethod

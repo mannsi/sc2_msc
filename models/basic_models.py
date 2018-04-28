@@ -145,7 +145,7 @@ class QLearningTableModel(Sc2Model):
         return {}
 
     def save(self, save_folder):
-        self.q_table.to_csv(os.path.join(save_folder, 'model'))
+        self.q_table.to_csv(os.path.join(save_folder, 'model.csv'))
 
     def check_state_exist(self, state):
         if state not in self.q_table.index:
