@@ -29,7 +29,6 @@ class PredefinedActionsModel(Sc2Model):
         for action in self.actions:
             if action.internal_id == internal_action_id and internal_action_id not in illegal_internal_action_ids:
                 return action
-        print('GOT HERE!!!!!')
         return super().default_action()
 
     def _update(self, replay_buffer):

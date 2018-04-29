@@ -61,7 +61,8 @@ class Sc2Agent:
         self.episode_num += 1
         self.latest_replay_buffer = replay_buffer
 
-        return self.model.update(replay_buffer)
+        if self.training_mode:
+            return self.model.update(replay_buffer)
 
     def save(self, save_folder):
         df = pd.DataFrame.from_records(self.latest_replay_buffer, columns=['state', 'action', 'reward', 'next_state'])
