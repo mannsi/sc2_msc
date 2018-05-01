@@ -1,11 +1,10 @@
 import os
-import pickle
 import numpy as np
 import pandas as pd
+import tensorflow as tf
 
 from pysc2.lib import actions, features
-from sc2_env_functions import get_own_unit_location, get_enemy_unit_location, get_enemy_width_and_height, \
-    get_enemy_hit_points
+from sc2_env_functions import get_own_unit_location, get_enemy_unit_location, get_enemy_width_and_height
 
 from sc2_action import internal_id_to_action_id
 import constants
@@ -15,10 +14,13 @@ ENEMY_PLAYER_FEATURE_ID = 2
 
 
 class Sc2Agent:
-    def __init__(self, model):
+    def __init__(self, model, log_dir, tb_train_writer, tb_test_writer):
         """
         :param model: Sc2Model object
         """
+        self.tb_test_writer = tb_test_writer
+        self.tb_train_writer = tb_train_writer
+        self.log_dir = log_dir
         self.latest_replay_buffer = []
         self.episode_num = 0
         self.model = model
@@ -69,17 +71,6 @@ class Sc2Agent:
         df.to_csv(os.path.join(save_folder, 'replay_buffer.csv'))
 
         self.model.save(save_folder)
-        agent_file_path = os.path.join(save_folder, 'agent_file')
-        with open(agent_file_path, 'wb') as f:
-            pickle.dump(self.__dict__, f)
-
-    # @staticmethod
-    # def load(save_file='agent_file'):
-    #     agent = Sc2Agent(model=None)
-    #     with open(save_file, 'rb') as f:
-    #         tmp_dict = pickle.load(f)
-    #     agent.__dict__.update(tmp_dict)
-    #     return agent
 
     @staticmethod
     def obs_to_state(obs):
@@ -162,10 +153,32 @@ class Sc2Agent:
         # For some reason the environment looses selection of own unit from time to time
         return actions.FUNCTIONS.Move_screen.id in obs.observation['available_actions']
 
+    def log_episode(self, last_obs, episode_number, results_dict):
+        if self.training_mode:
+            self._log_episode(self.tb_train_writer, last_obs, episode_number, results_dict)
+        else:
+            self._log_episode(self.tb_test_writer, last_obs, episode_number, results_dict)
+            episode_log_folder = os.path.join(self.log_dir, str(episode_number))
+            os.makedirs(episode_log_folder)
+            self.save(episode_log_folder)
+
+    @staticmethod
+    def _log_episode(tb_writer, last_obs, episode_number, agent_results_dict):
+        if tb_writer is None:
+            return
+        total_episode_rewards = last_obs.observation["score_cumulative"][0]
+        reward_summary = tf.Summary(value=[tf.Summary.Value(tag='Episode rewards', simple_value=total_episode_rewards)])
+        tb_writer.add_summary(reward_summary, episode_number)
+
+        if agent_results_dict is not None:
+            for k, v in agent_results_dict.items():
+                results_summary = tf.Summary(value=[tf.Summary.Value(tag=k, simple_value=v)])
+                tb_writer.add_summary(results_summary, episode_number)
+
 
 class SimpleVikingAgent(Sc2Agent):
-    def __init__(self, model, possible_actions):
-        super().__init__(model)
+    def __init__(self, model, possible_actions, log_dir, tb_train_writer, tb_test_writer):
+        super().__init__(model, log_dir, tb_train_writer, tb_test_writer)
         self.actions = possible_actions
 
     def _act(self, obs):
@@ -203,14 +216,6 @@ class SimpleVikingAgent(Sc2Agent):
         enemy_loc = np.array(get_enemy_unit_location(obs))
         dist = np.linalg.norm(own_unit_loc - enemy_loc)
         rounded_dist = int(round(dist))
-        if 27 < rounded_dist <= 30:
-            distance_string = '2'
-        elif 17 <= rounded_dist <= 27:
-            distance_string = '1'
-        elif rounded_dist < 17:
-            distance_string = '0'
-        else:
-            raise ValueError(f"Rounded distance outside of exepected score. Val {dist:.4f}")
 
         # Flying or landed
         flying = None
@@ -227,8 +232,6 @@ class SimpleVikingAgent(Sc2Agent):
                 flying = 'landed'
             else:
                 ValueError("Can neither land nor fly ... ")
-
-        enemy_hit_points = get_enemy_hit_points(obs)
 
         # Is enemy coming towards us
         enemy_closing_in = 'enemy_closing_in' if obs.reward > 0 else '0'

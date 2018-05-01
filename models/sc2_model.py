@@ -2,18 +2,24 @@ import numpy as np
 
 
 class Sc2Model:
-    def __init__(self, actions, lr=0.1, epsilon=0.9, decay_lr=True, total_episodes=100):
+    def __init__(self, actions, lr=0.1, epsilon=0.9, decay_lr=True, decay_epsilon=True, total_episodes=100):
         """
         :param actions: list of ScAction objects
         """
+
         if lr < 0:
             raise ValueError(f"Learning rate {lr} cannot be negative")
+
+        if epsilon < 0:
+            raise ValueError(f"Epsilon greedy rate {epsilon} cannot be negative")
 
         self.lr = lr
         self.init_lr = lr
         self.epsilon = epsilon
+        self.init_epsilon = epsilon
         self.total_episodes = total_episodes
         self.decay_lr = decay_lr
+        self.decay_epsilon = decay_epsilon
         self._training_mode = True
         self.actions = actions
 
@@ -46,10 +52,13 @@ class Sc2Model:
         if self.decay_lr:
             self.lr -= (1 / self.total_episodes) * self.init_lr
 
+        if self.decay_epsilon:
+            self.epsilon += (1 / self.total_episodes) * (1 - self.init_epsilon)
+
         results_dict = self._update(replay_buffer)
 
         # Below code joins 2 dictionaries
-        return {**{'lr': self.lr}, **results_dict}
+        return {**{'lr': self.lr, 'epsilon': self.epsilon}, **results_dict}
 
     def _update(self, replay_buffer):
         raise NotImplementedError("Please Implement this method")

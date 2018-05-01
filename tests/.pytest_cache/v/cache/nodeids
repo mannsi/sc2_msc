@@ -1,5 +1,10 @@
 [
+  "sc2model_tests.py::TestBaseMethods::test_epsilon_decay_doubles",
+  "sc2model_tests.py::TestBaseMethods::test_epsilon_goes_to_one",
+  "sc2model_tests.py::TestBaseMethods::test_epsilon_should_not_decay",
   "sc2model_tests.py::TestBaseMethods::test_lr_decay_goes_to_zero",
   "sc2model_tests.py::TestBaseMethods::test_lr_decay_halfs",
+  "sc2model_tests.py::TestBaseMethods::test_lr_should_not_decay",
+  "sc2model_tests.py::TestBaseMethods::test_negative_epsilon_raises",
   "sc2model_tests.py::TestBaseMethods::test_negative_lr_raises"
 ]

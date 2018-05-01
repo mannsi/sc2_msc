@@ -2,7 +2,7 @@ import os
 import tensorflow as tf
 import flags_import
 
-FLAGS = flags_import.get_flags()
+FLAGS = flags_import.get_run_config()
 BASE_LOG_PATH = os.path.join(FLAGS.log_path, "DM_FULLCONV", FLAGS.map, str(FLAGS.step_mul))
 
 if FLAGS.run_comment is not "":

@@ -2,7 +2,6 @@ import os
 import numpy as np
 import pandas as pd
 from .sc2_model import Sc2Model
-from sc2_action import internal_id_to_action_id
 import constants
 
 
@@ -68,7 +67,7 @@ class HardCodedTableAgent(Sc2Model):
         self.epsilon = 1  # Zero chance of random choice
 
     def _select_action(self, obs, illegal_internal_action_ids=None):
-        distance, flying, enemmy_coming = self._state_to_ind_vars(obs)
+        distance, flying, enemmy_coming = self._state_to_index_vars(obs)
 
         if flying == 1:
             internal_action_id = constants.LAND
@@ -78,25 +77,25 @@ class HardCodedTableAgent(Sc2Model):
                     internal_action_id = constants.ATTACK_ENEMY
                 else:
                     internal_action_id = constants.FLIGHT
-            if distance == 1:
+            elif distance == 1:
                 if enemmy_coming == 0:
                     internal_action_id = constants.ATTACK_ENEMY
                 else:
                     internal_action_id = constants.FLIGHT
-            if distance == 2:
+            elif distance == 2:
                 internal_action_id = constants.ATTACK_ENEMY
-
+            else:
+                raise ValueError(f"Unknown distance mapping {distance}")
         for action in self.actions:
             if action.internal_id == internal_action_id and internal_action_id not in illegal_internal_action_ids:
                 return action
-        print('GOT HERE!!!!!')
         return super().default_action()
 
     def _update(self, replay_buffer):
         pass
 
     @staticmethod
-    def _state_to_ind_vars(state):
+    def _state_to_index_vars(state):
         distance = int(state[0:1])
         flying = int(state[1:2])
         enemy_coming = int(state[2:3])
@@ -104,8 +103,8 @@ class HardCodedTableAgent(Sc2Model):
 
 
 class QLearningTableModel(Sc2Model):
-    def __init__(self, actions, lr, reward_decay, epsilon_greedy, total_episodes, should_decay_lr):
-        super().__init__(actions, lr, epsilon_greedy, should_decay_lr, total_episodes)
+    def __init__(self, actions, lr, reward_decay, epsilon_greedy, total_episodes, decay_lr, decay_epsilon):
+        super().__init__(actions, lr, epsilon_greedy, decay_lr, decay_epsilon, total_episodes)
         self.possible_actions_dict = {a.internal_id: a for a in actions}
         self.gamma = reward_decay
         self.q_table = pd.DataFrame(columns=self.possible_actions_dict.keys(), dtype=np.float64)
