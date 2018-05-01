@@ -172,7 +172,7 @@ class Sc2Agent:
 
         if agent_results_dict is not None:
             for k, v in agent_results_dict.items():
-                results_summary = tf.Summary(value=[tf.Summary.Value(tag=k, simple_value=v)])
+                results_summary = tf.Summary(value=[tf.Summary.Value(tag=f'meta/{k}', simple_value=v)])
                 tb_writer.add_summary(results_summary, episode_number)
 
 
