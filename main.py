@@ -19,7 +19,19 @@ import flags_import
 
 
 def run_agent(agent, run_config):
+    """
+    Run an agent using the given run config
+    :param agent: The agent to run
+    :type agent: agents.Sc2Agent
+    :param run_config: The run configuration to use
+    :type run_config: SimpleNamespace
+    """
     start_time = time.time()
+    replay_buffer = []
+    step_counter = 0
+    use_experience_replay = run_config.experience_replay_max_size is not None
+
+    # CREATE SC2 ENV
     with sc2_env.SC2Env(
             map_name=run_config.map,
             step_mul=run_config.step_mul,
@@ -28,15 +40,10 @@ def run_agent(agent, run_config):
             visualize=run_config.render,
             replay_dir=run_config.replay_dir,
             save_replay_episodes=run_config.eval_agent_steps) as env:
-        replay_buffer = []
-        step_counter = 0
-        use_experience_replay = run_config.experience_replay_max_size is not None
         for episode_number in range(1, run_config.max_steps + 1):
-            if not agent.training_mode:
-                print("Next episode is test episode")
             obs = env.reset()[0]  # Initial obs from env
             while True:
-                step_counter += 1
+                # INTERACT WITH ENVIRONMENT
                 prev_obs = obs
                 action = agent.act(obs)
                 obs = env.step([action.get_function_call()])[0]
@@ -45,7 +52,9 @@ def run_agent(agent, run_config):
                 r = obs.reward
                 s_ = agent.obs_to_state(obs) if not obs.last() else None
 
+                # HANDLE EXPERIENCE REPLAY BUFFER
                 if use_experience_replay:
+                    step_counter += 1
                     if step_counter <= run_config.experience_replay_max_size:
                         # Start by filling the buffer
                         replay_buffer.append((s, a, r, s_))
@@ -56,14 +65,15 @@ def run_agent(agent, run_config):
                     replay_buffer.append((s, a, r, s_))
 
                 if obs.last():
-                    step_counter = 0
+                    # UPDATE AGENT
                     results_dict = agent.observe(replay_buffer)
                     agent.log_episode(obs, episode_number, results_dict)
 
                     if not use_experience_replay:
                         replay_buffer = []
 
-                    should_test_agent = run_config.test_agent and agent.training_mode and episode_number % run_config.eval_agent_steps == 0
+                    # CONFIGURE IF NEXT EPISODE IS A TEST EPISODE
+                    should_test_agent = agent.training_mode and episode_number % run_config.eval_agent_steps == 0
                     agent.training_mode = not should_test_agent
 
                     break  # Exit episode
@@ -71,24 +81,34 @@ def run_agent(agent, run_config):
     print("Took %.3f seconds" % elapsed_time)
 
 
-def create_model(sc_actions, run_config):
-    if run_config.model == "always_attack":
+def create_model(model_name, sc_actions, run_config):
+    """
+
+    :param model_name: Name of the model to create
+    :type model_name: str
+    :param sc_actions: The available actions of the model
+    :type sc_actions: List of sc2_action.Sc2Action
+    :param run_config: The run configuration
+    :return: A model
+    :rtype: sc2_model.Sc2Model
+    """
+    if model_name == "always_attack":
         model = RandomModel([Sc2Action(constants.ATTACK_ENEMY)])
-    elif run_config.agent == "random":
+    elif model_name == "random":
         model = RandomModel(sc_actions)
-    elif run_config.model == "predefined_actions":
+    elif model_name == "predefined_actions":
         action_list = [constants.ATTACK_ENEMY, constants.ATTACK_ENEMY, constants.FLIGHT] * 101
         model = PredefinedActionsModel(sc_actions, action_list)
-    elif run_config.model == "hardcoded":
+    elif model_name == "hardcoded":
         model = HardCodedTableAgent(sc_actions)
-    elif run_config.model == "cmd_input":
+    elif model_name == "cmd_input":
         key_to_action_mapping = {'f': constants.FLIGHT,
                                  'l': constants.LAND,
                                  'n': constants.NO_OP,
                                  'a': constants.ATTACK_ENEMY,
                                  'm': constants.MOVE_FROM_ENEMY}
         model = CmdInputModel(sc_actions, key_to_action_mapping)
-    elif run_config.model == "table":
+    elif model_name == "table":
         model = QLearningTableModel(actions=sc_actions,
                                     lr=run_config.learning_rate,
                                     reward_decay=run_config.discount,
@@ -96,7 +116,7 @@ def create_model(sc_actions, run_config):
                                     total_episodes=run_config.max_steps,
                                     decay_lr=run_config.decay_lr,
                                     decay_epsilon=run_config.decay_epsilon)
-    elif run_config.modelmodel == "1d_qlearning":
+    elif model_name == "1d_qlearning":
         num_inputs = run_config.screen_resolution * run_config.screen_resolution * 2  # 2 for our and enemy unit plains
         from models.dl_models import Dense1DModel  # Import here because importing TensorFlow is slow
         model = Dense1DModel(actions=sc_actions,
@@ -143,15 +163,13 @@ def run(args):
 
     sc_actions = [
         Sc2Action(constants.NO_OP),
-        # Sc2Action(constants.MOVE_TO_ENEMY),
-        # Sc2Action(constants.MOVE_FROM_ENEMY),
         Sc2Action(constants.ATTACK_ENEMY),
         Sc2Action(constants.LAND),
         Sc2Action(constants.FLIGHT),
     ]
 
-    model = create_model(sc_actions, run_config)
-    agent = create_agent(sc_actions, run_config, model, run_config.agent_files_dir, tb_train_writer, tb_test_writer)
+    model = create_model(run_config.model, sc_actions, run_config)
+    agent = create_agent(run_config.agent, sc_actions, run_config, model, run_config.agent_files_dir, tb_train_writer, tb_test_writer)
 
     run_agent(agent, run_config)
 

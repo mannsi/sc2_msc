@@ -239,7 +239,7 @@ class SimpleVikingAgent(Sc2Agent):
                 ValueError("Can neither land nor fly ... ")
 
         # Is enemy coming towards us
-        enemy_closing_in = 'enemy_closing_in' if obs.reward > 0 else '0'
+        enemy_closing_in = 'enemy_closing_in' if obs.reward > 0 and rounded_dist < 25 else 'enemy_not_attacking'
 
         return f'{rounded_dist}/{flying}/{enemy_closing_in}'
 
