@@ -11,12 +11,13 @@ flags.DEFINE_bool("training", True, "Whether to train agents.")
 flags.DEFINE_float("learning_rate", 0.1, "Learning rate for training.")
 flags.DEFINE_float("discount", 0.9, "Discount rate for future rewards.")
 flags.DEFINE_float("epsilon", 0.9, "Epsilon greedy parameter")
-flags.DEFINE_integer("snapshot_step", 10, "Step for snapshot.")  # I use this to run the agent without training
+flags.DEFINE_integer("eval_agent_steps", 10, "Num of steps between agent eval")
 flags.DEFINE_string("log_path", os.path.join(Path.home(), "tb_output"), "Path for log.")
 # flags.DEFINE_bool("save_replays", False, "If replays should be saved")
 flags.DEFINE_bool("profile", False, "Whether to turn on code profiling.")
 flags.DEFINE_bool("trace", False, "Whether to trace the code execution.")
 flags.DEFINE_integer("minimap_resolution", 64, "Resolution for minimap feature layers.")
+
 
 flags.DEFINE_string("map", "DefeatRoaches", "Name of a map to use.")
 flags.DEFINE_integer("max_steps", 20, "Total steps for training.")  # Num episodes

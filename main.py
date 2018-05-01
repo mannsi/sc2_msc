@@ -27,7 +27,7 @@ def run_agent(agent, run_config):
             minimap_size_px=(run_config.minimap_resolution, run_config.minimap_resolution),
             visualize=run_config.render,
             replay_dir=run_config.replay_dir,
-            save_replay_episodes=run_config.snapshot_step) as env:
+            save_replay_episodes=run_config.eval_agent_steps) as env:
         replay_buffer = []
         step_counter = 0
         use_experience_replay = run_config.experience_replay_max_size is not None
@@ -63,7 +63,7 @@ def run_agent(agent, run_config):
                     if not use_experience_replay:
                         replay_buffer = []
 
-                    should_test_agent = run_config.test_agent and agent.training_mode and episode_number % run_config.snapshot_step == 0
+                    should_test_agent = run_config.test_agent and agent.training_mode and episode_number % run_config.eval_agent_steps == 0
                     agent.training_mode = not should_test_agent
 
                     break  # Exit episode
