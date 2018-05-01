@@ -56,6 +56,8 @@ class Sc2Model:
             self.epsilon += (1 / self.total_episodes) * (1 - self.init_epsilon)
 
         results_dict = self._update(replay_buffer)
+        if results_dict is None:
+            results_dict = {}
 
         # Below code joins 2 dictionaries
         return {**{'lr': self.lr, 'epsilon': self.epsilon}, **results_dict}

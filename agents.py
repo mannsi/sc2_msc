@@ -1,4 +1,5 @@
 import os
+import random
 import numpy as np
 import pandas as pd
 import tensorflow as tf
@@ -61,10 +62,14 @@ class Sc2Agent:
         :param replay_buffer: list of tuples containing (state, action, reward, next_state)
         """
         self.episode_num += 1
-        self.latest_replay_buffer = replay_buffer
+        self.latest_replay_buffer = replay_buffer[:]
 
         if self.training_mode:
+            random.shuffle(replay_buffer)
             return self.model.update(replay_buffer)
+        else:
+            # Update using an empty replay buffer because we don't want to update the model weights, only step it
+            return self.model.update([])
 
     def save(self, save_folder):
         df = pd.DataFrame.from_records(self.latest_replay_buffer, columns=['state', 'action', 'reward', 'next_state'])

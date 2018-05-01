@@ -10,13 +10,12 @@ from pysc2.lib import stopwatch
 # noinspection PyUnresolvedReferences
 import maps as my_maps
 from agents import SimpleVikingAgent
-from models.basic_models import RandomModel, QLearningTableModel, PredefinedActionsModel, CmdInputModel, HardCodedTableAgent
+from models.basic_models import RandomModel, QLearningTableModel, PredefinedActionsModel, CmdInputModel, \
+    HardCodedTableAgent
 
 from sc2_action import Sc2Action
 import constants
 import flags_import
-
-import random
 
 
 def run_agent(agent, run_config):
@@ -57,14 +56,14 @@ def run_agent(agent, run_config):
                     replay_buffer.append((s, a, r, s_))
 
                 if obs.last():
-                    random.shuffle(replay_buffer)
+                    step_counter = 0
                     results_dict = agent.observe(replay_buffer)
                     agent.log_episode(obs, episode_number, results_dict)
 
                     if not use_experience_replay:
                         replay_buffer = []
 
-                    should_test_agent = run_config.test_agent and episode_number % run_config.snapshot_step == 0
+                    should_test_agent = run_config.test_agent and agent.training_mode and episode_number % run_config.snapshot_step == 0
                     agent.training_mode = not should_test_agent
 
                     break  # Exit episode
@@ -78,8 +77,7 @@ def create_model(sc_actions, run_config):
     elif run_config.agent == "random":
         model = RandomModel(sc_actions)
     elif run_config.model == "predefined_actions":
-        action_list = [constants.ATTACK_ENEMY, constants.ATTACK_ENEMY, constants.FLIGHT,
-                       constants.LAND, constants.ATTACK_ENEMY, constants.ATTACK_ENEMY] * 100
+        action_list = [constants.ATTACK_ENEMY, constants.ATTACK_ENEMY, constants.FLIGHT] * 101
         model = PredefinedActionsModel(sc_actions, action_list)
     elif run_config.model == "hardcoded":
         model = HardCodedTableAgent(sc_actions)
@@ -118,7 +116,7 @@ def create_agent(sc_actions, run_config, model, log_dir, tb_train_writer, tb_tes
     if run_config.agent == "simple_viking_agent":
         agent = SimpleVikingAgent(model, sc_actions, log_dir, tb_train_writer, tb_test_writer)
     else:
-        raise NotImplementedError()
+        raise NotImplementedError(f'Unknown agent {run_config.agent}')
     return agent
 
 

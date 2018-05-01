@@ -39,8 +39,8 @@ FLAGS(sys.argv)
 def get_run_config():
     extra_settings = {}
 
-    agent_and_map = f'{FLAGS.agent}_{FLAGS.map}'
-    BASE_LOG_PATH = os.path.join(FLAGS.log_path, agent_and_map)
+    agent_model_map = f'{FLAGS.agent}_{FLAGS.model}_{FLAGS.map}'
+    BASE_LOG_PATH = os.path.join(FLAGS.log_path, agent_model_map)
 
     if FLAGS.run_comment is not "":
         BASE_LOG_PATH = os.path.join(BASE_LOG_PATH, FLAGS.run_comment)
